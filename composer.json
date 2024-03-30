@@ -8,6 +8,12 @@
     }
   ],
   
+  "require": {
+    "php": "^7.2|^8.0",
+    
+    "ext-json": "*"
+  },
+  
   "autoload": {
     "psr-4": {
       "Gzhegow\\Eventman\\": "src/"
@@ -21,11 +27,9 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   
-  "require": {
-    "php": "^7.2|^8.0",
+  "config": {
+    "optimize-autoloader": true,
     
-    "ext-json": "*",
-    
-    "symfony/var-dumper": "^5.4"
+    "sort-packages": false
   }
 }
