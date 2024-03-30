@@ -55,7 +55,7 @@ class EventmanFactory implements EventmanFactoryInterface
 
     protected function newHandlerInvokableClass(GenericHandler $handler) : ?callable
     {
-        if (! $handler->invokableCLass) return null;
+        if (! $handler->invokableClass) return null;
 
         $class = $handler->getInvokableClass();
 

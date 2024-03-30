@@ -15,7 +15,7 @@ class GenericHandler
     /**
      * @var class-string
      */
-    public $invokableCLass;
+    public $invokableClass;
 
     /**
      * @var EventHandlerInterface
@@ -43,7 +43,7 @@ class GenericHandler
             || ($this->filterHandler && ($this->filterHandler === $handler->filterHandler))
             || ($this->eventHandlerClass && ($this->eventHandlerClass === $handler->eventHandlerClass))
             || ($this->filterHandlerClass && ($this->filterHandlerClass === $handler->filterHandlerClass))
-            || ($this->invokableCLass && ($this->invokableCLass === $handler->invokableCLass));
+            || ($this->invokableClass && ($this->invokableClass === $handler->invokableClass));
     }
 
 
@@ -57,7 +57,7 @@ class GenericHandler
      */
     public function getInvokableClass() : string
     {
-        return $this->invokableCLass;
+        return $this->invokableClass;
     }
 
 

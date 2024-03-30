@@ -507,7 +507,7 @@ class Eventman implements EventmanInterface
             $instance->eventHandlerClass = $_eventHandlerClass;
             $instance->filterHandler = $_filterHandler;
             $instance->filterHandlerClass = $_filterHandlerClass;
-            $instance->invokableCLass = $_invokableClass;
+            $instance->invokableClass = $_invokableClass;
         }
 
         if (! $instance) {
