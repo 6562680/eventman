@@ -71,7 +71,7 @@ class Eventman implements EventmanInterface
     {
         $_event = $this->assertEvent($event);
 
-        $eventName = (string) $_event;
+        $eventName = $_event->getName();
 
         $handlers = $this->events[ $eventName ] ?? null;
 
@@ -88,7 +88,7 @@ class Eventman implements EventmanInterface
 
                 } elseif ($argument instanceof GenericSubscriber) {
                     $subscriber = $argument;
-                    $subscriberName = (string) $subscriber;
+                    $subscriberName = $subscriber->getName();
                     $subscriberObject = $this->subscribers[ $subscriberName ] ?? null;
 
                     if (is_bool($subscriberObject)) {
@@ -136,7 +136,7 @@ class Eventman implements EventmanInterface
     {
         $_filter = $this->assertFilter($filter);
 
-        $filterName = (string) $_filter;
+        $filterName = $_filter->getName();
 
         $handlers = $this->events[ $filterName ] ?? null;
 
@@ -153,7 +153,7 @@ class Eventman implements EventmanInterface
 
                 } elseif ($argument instanceof GenericSubscriber) {
                     $subscriber = $argument;
-                    $subscriberName = (string) $subscriber;
+                    $subscriberName = $subscriber->getName();
                     $subscriberObject = $this->subscribers[ $subscriberName ] ?? null;
 
                     if (is_bool($subscriberObject)) {
@@ -205,7 +205,7 @@ class Eventman implements EventmanInterface
         $_event = $this->assertEvent($event);
         $_handler = $this->assertHandler($handler);
 
-        $eventName = (string) $_event;
+        $eventName = $_event->getName();
 
         $this->registryEvents[] = [ $eventName, [ $_handler, $_event ] ];
     }
@@ -225,7 +225,7 @@ class Eventman implements EventmanInterface
             $_handler = $this->assertHandler($handler);
         }
 
-        $eventName = (string) $_event;
+        $eventName = $_event->getName();
 
         foreach ( $this->registryEvents as $idx => [ $registryEventName ] ) {
             if ($registryEventName === $eventName) {
@@ -257,7 +257,7 @@ class Eventman implements EventmanInterface
         $_filter = $this->assertFilter($filter);
         $_handler = $this->assertHandler($handler);
 
-        $filterName = (string) $_filter;
+        $filterName = $_filter->getName();
 
         $this->registryFilters[] = [ $filterName, [ $_handler, $_filter ] ];
     }
@@ -277,7 +277,7 @@ class Eventman implements EventmanInterface
             $_handler = $this->assertHandler($handler);
         }
 
-        $filterName = (string) $_filter;
+        $filterName = $_filter->getName();
 
         foreach ( $this->registryFilters as $idx => [ $registryFilterName ] ) {
             if ($registryFilterName === $filterName) {
@@ -307,7 +307,7 @@ class Eventman implements EventmanInterface
     {
         $_subscriber = $this->assertSubscriber($subscriber);
 
-        $subscriberName = (string) $_subscriber;
+        $subscriberName = $_subscriber->getName();
 
         if (isset($this->subscribers[ $subscriberName ])) {
             throw new \RuntimeException('Subscriber already registered: ' . _assert_dump($subscriber));
@@ -338,7 +338,7 @@ class Eventman implements EventmanInterface
     {
         $_subscriber = $this->assertSubscriber($subscriber);
 
-        $subscriberKey = (string) $_subscriber;
+        $subscriberKey = $_subscriber->getName();
 
         foreach ( $this->registryEventsIndexBySubscriber[ $subscriberKey ] ?? [] as $idx ) {
             unset($this->registryEvents[ $idx ]);
@@ -387,7 +387,7 @@ class Eventman implements EventmanInterface
 
         if ($_name || $_event || $_eventClass) {
             $instance = new GenericEvent();
-            $instance->name = $_name;
+            $instance->eventString = $_name;
             $instance->event = $_event;
             $instance->eventClass = $_eventClass;
         }
@@ -432,7 +432,7 @@ class Eventman implements EventmanInterface
 
         if ($_name || $_filter || $_filterClass) {
             $instance = new GenericFilter();
-            $instance->name = $_name;
+            $instance->filterString = $_name;
             $instance->filter = $_filter;
             $instance->filterClass = $_filterClass;
         }

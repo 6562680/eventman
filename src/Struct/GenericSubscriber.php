@@ -2,6 +2,7 @@
 
 namespace Gzhegow\Eventman\Struct;
 
+use Gzhegow\Eventman\Interfaces\HasNameInterface;
 use Gzhegow\Eventman\Subscriber\SubscriberInterface;
 
 
@@ -17,10 +18,21 @@ class GenericSubscriber
     public $subscriberClass;
 
 
-    public function __toString()
+    public function getName() : string
     {
-        return $this->subscriberClass ??
-            ($this->subscriber ? get_class($this->subscriber) : null);
+        if ($this->subscriberClass) {
+            return $this->subscriberClass;
+        }
+
+        if ($this->subscriber) {
+            if ($this->subscriber instanceof HasNameInterface) {
+                return $this->subscriber->getName();
+            }
+
+            return get_class($this->subscriber);
+        }
+
+        throw new \RuntimeException('Unable to extract `name` from subscriber');
     }
 
 

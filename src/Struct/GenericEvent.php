@@ -3,15 +3,11 @@
 namespace Gzhegow\Eventman\Struct;
 
 use Gzhegow\Eventman\Event\EventInterface;
+use Gzhegow\Eventman\Interfaces\HasNameInterface;
 
 
 class GenericEvent
 {
-    /**
-     * @var string
-     */
-    public $name;
-
     /**
      * @var EventInterface
      */
@@ -20,27 +16,39 @@ class GenericEvent
      * @var class-string<EventInterface>|EventInterface
      */
     public $eventClass;
+    /**
+     * @var string
+     */
+    public $eventString;
 
 
-    public function __toString()
+    public function getName() : string
     {
-        return $this->eventClass
-            ?? ($this->event ? get_class($this->event) : null)
-            ?? $this->name;
+        if ($this->eventClass) {
+            return $this->eventClass;
+        }
+
+        if ($this->eventString) {
+            return $this->eventString;
+        }
+
+        if ($this->event) {
+            if ($this->event instanceof HasNameInterface) {
+                return $this->event->getName();
+            }
+
+            return get_class($this->event);
+        }
+
+        throw new \RuntimeException('Unable to extract `name` from event');
     }
 
 
     public function isSame(GenericEvent $event) : bool
     {
-        return ($this->name && ($this->name === $event->name))
+        return ($this->eventString && ($this->eventString === $event->eventString))
             || ($this->event && ($this->event === $event->event))
             || ($this->eventClass && ($this->eventClass === $event->eventClass));
-    }
-
-
-    public function getName() : string
-    {
-        return $this->name;
     }
 
 
@@ -55,5 +63,10 @@ class GenericEvent
     public function getEventClass() : string
     {
         return $this->eventClass;
+    }
+
+    public function getEventString() : string
+    {
+        return $this->eventString;
     }
 }
