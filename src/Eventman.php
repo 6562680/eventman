@@ -2,9 +2,7 @@
 
 namespace Gzhegow\Eventman;
 
-use Gzhegow\Eventman\Struct\GenericEvent;
 use Gzhegow\Eventman\Event\EventInterface;
-use Gzhegow\Eventman\Struct\GenericFilter;
 use Gzhegow\Eventman\Struct\GenericHandler;
 use Gzhegow\Eventman\Filter\FilterInterface;
 use Gzhegow\Eventman\Struct\GenericSubscriber;
@@ -69,7 +67,7 @@ class Eventman implements EventmanInterface
      */
     public function fireEvent($event, $context = null) : void
     {
-        $_event = $this->assertEvent($event);
+        $_event = $this->factory->assertEvent($event);
 
         $eventName = $_event->getName();
 
@@ -102,7 +100,7 @@ class Eventman implements EventmanInterface
                             continue;
                         }
 
-                        $_handler = $this->assertHandler($handler);
+                        $_handler = $this->factory->assertHandler($handler);
 
                         $handlers[] = $_handler;
                     }
@@ -134,15 +132,15 @@ class Eventman implements EventmanInterface
      */
     public function fireFilter($filter, $input, $context = null) // : mixed
     {
-        $_filter = $this->assertFilter($filter);
+        $_filter = $this->factory->assertFilter($filter);
 
         $filterName = $_filter->getName();
 
-        $handlers = $this->events[ $filterName ] ?? null;
+        $handlers = $this->filters[ $filterName ] ?? null;
 
         if (is_null($handlers)) {
-            foreach ( $this->registryFilters as $idx => [ $registryEventName, $arguments ] ) {
-                if ($registryEventName !== $filterName) {
+            foreach ( $this->registryFilters as $idx => [ $registryFilterName, $arguments ] ) {
+                if ($registryFilterName !== $filterName) {
                     continue;
                 }
 
@@ -162,16 +160,16 @@ class Eventman implements EventmanInterface
                         $this->subscribers[ $subscriberName ] = $subscriberObject;
                     }
 
-                    foreach ( $subscriberObject->filterHandlers() as [ $subscriberEventName, $handler ] ) {
-                        if ($subscriberEventName !== $filterName) continue;
+                    foreach ( $subscriberObject->filterHandlers() as [ $subscriberFilterName, $handler ] ) {
+                        if ($subscriberFilterName !== $filterName) continue;
 
-                        $_handler = $this->assertHandler($handler);
+                        $_handler = $this->factory->assertHandler($handler);
 
                         $handlers[] = $_handler;
                     }
                 }
 
-                unset($this->registryEvents[ $idx ]);
+                unset($this->registryFilters[ $idx ]);
             }
 
             if ($handlers) {
@@ -202,8 +200,8 @@ class Eventman implements EventmanInterface
      */
     public function onEvent($event, $handler) : void
     {
-        $_event = $this->assertEvent($event);
-        $_handler = $this->assertHandler($handler);
+        $_event = $this->factory->assertEvent($event);
+        $_handler = $this->factory->assertHandler($handler);
 
         $eventName = $_event->getName();
 
@@ -218,11 +216,11 @@ class Eventman implements EventmanInterface
      */
     public function offEvent($event, $handler = null) : void
     {
-        $_event = $this->assertEvent($event);
+        $_event = $this->factory->assertEvent($event);
 
         $_handler = null;
         if ($handler) {
-            $_handler = $this->assertHandler($handler);
+            $_handler = $this->factory->assertHandler($handler);
         }
 
         $eventName = $_event->getName();
@@ -254,8 +252,8 @@ class Eventman implements EventmanInterface
      */
     public function onFilter($filter, $handler) : void
     {
-        $_filter = $this->assertFilter($filter);
-        $_handler = $this->assertHandler($handler);
+        $_filter = $this->factory->assertFilter($filter);
+        $_handler = $this->factory->assertHandler($handler);
 
         $filterName = $_filter->getName();
 
@@ -270,11 +268,11 @@ class Eventman implements EventmanInterface
      */
     public function offFilter($filter, $handler = null) : void
     {
-        $_filter = $this->assertFilter($filter);
+        $_filter = $this->factory->assertFilter($filter);
 
         $_handler = null;
         if ($handler) {
-            $_handler = $this->assertHandler($handler);
+            $_handler = $this->factory->assertHandler($handler);
         }
 
         $filterName = $_filter->getName();
@@ -305,7 +303,7 @@ class Eventman implements EventmanInterface
      */
     public function subscribe($subscriber) : void
     {
-        $_subscriber = $this->assertSubscriber($subscriber);
+        $_subscriber = $this->factory->assertSubscriber($subscriber);
 
         $subscriberName = $_subscriber->getName();
 
@@ -336,7 +334,7 @@ class Eventman implements EventmanInterface
      */
     public function unsubscribe($subscriber) : void
     {
-        $_subscriber = $this->assertSubscriber($subscriber);
+        $_subscriber = $this->factory->assertSubscriber($subscriber);
 
         $subscriberKey = $_subscriber->getName();
 
@@ -352,203 +350,5 @@ class Eventman implements EventmanInterface
         unset($this->registryFiltersIndexBySubscriber[ $subscriberKey ]);
 
         unset($this->subscribers[ $subscriberKey ]);
-    }
-
-
-    /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     */
-    protected function assertEvent($event) : GenericEvent
-    {
-        $instance = null;
-
-        $_name = null;
-        $_event = null;
-        $_eventClass = null;
-        if ($event instanceof EventInterface) {
-            $_event = $event;
-
-        } elseif (is_string($event) && ('' !== $event)) {
-            if (class_exists($event)) {
-                if (is_subclass_of($event, EventInterface::class)) {
-                    $_eventClass = $event;
-
-                } elseif (is_subclass_of($event, FilterInterface::class)) {
-                    throw new \LogicException(
-                        "The `event` must not be subclass of: " . FilterInterface::class
-                    );
-
-                }
-
-            } else {
-                $_name = $event;
-            }
-        }
-
-        if ($_name || $_event || $_eventClass) {
-            $instance = new GenericEvent();
-            $instance->eventString = $_name;
-            $instance->event = $_event;
-            $instance->eventClass = $_eventClass;
-        }
-
-        if (! $instance) {
-            throw new \LogicException(
-                'Unable to ' . __METHOD__ . ': ' . _assert_dump($event)
-            );
-        }
-
-        return $instance;
-    }
-
-    /**
-     * @param string|class-string<FilterInterface>|FilterInterface $filter
-     */
-    protected function assertFilter($filter) : GenericFilter
-    {
-        $instance = null;
-
-        $_name = null;
-        $_filter = null;
-        $_filterClass = null;
-        if ($filter instanceof FilterInterface) {
-            $_filter = $filter;
-
-        } elseif (is_string($filter) && ('' !== $filter)) {
-            if (class_exists($filter)) {
-                if (is_subclass_of($filter, FilterInterface::class)) {
-                    $_filterClass = $filter;
-
-                } elseif (is_subclass_of($filter, EventInterface::class)) {
-                    throw new \LogicException(
-                        "The `filter` must not be subclass of: " . EventInterface::class
-                    );
-                }
-
-            } else {
-                $_name = $filter;
-            }
-        }
-
-        if ($_name || $_filter || $_filterClass) {
-            $instance = new GenericFilter();
-            $instance->filterString = $_name;
-            $instance->filter = $_filter;
-            $instance->filterClass = $_filterClass;
-        }
-
-        if (! $instance) {
-            throw new \LogicException(
-                'Unable to ' . __METHOD__ . ': ' . _assert_dump($filter)
-            );
-        }
-
-        return $instance;
-    }
-
-    /**
-     * @param callable|class-string<EventHandlerInterface|FilterHandlerInterface>|EventHandlerInterface|FilterHandlerInterface $handler
-     */
-    protected function assertHandler($handler) : GenericHandler
-    {
-        $instance = null;
-
-        $_callable = null;
-        $_invokableClass = null;
-        $_eventHandler = null;
-        $_eventHandlerClass = null;
-        $_filterHandler = null;
-        $_filterHandlerClass = null;
-        if (is_object($handler)) {
-            if ($handler instanceof EventHandlerInterface) {
-                $_eventHandler = $handler;
-
-            } elseif ($handler instanceof FilterHandlerInterface) {
-                $_filterHandler = $handler;
-
-            } elseif (is_callable($handler)) {
-                $_callable = $handler;
-            }
-
-        } elseif (is_array($handler)) {
-            if (is_callable($handler)) {
-                $_callable = $handler;
-            }
-
-        } else {
-            if (is_string($handler) && ('' !== $handler)) {
-                if (class_exists($handler)) {
-                    if (is_subclass_of($handler, EventHandlerInterface::class)) {
-                        $_eventHandlerClass = $handler;
-
-                    } elseif (is_subclass_of($handler, FilterHandlerInterface::class)) {
-                        $_filterHandlerClass = $handler;
-
-                    } elseif (method_exists($handler, '__invoke')) {
-                        $_invokableClass = $handler;
-                    }
-
-                } elseif (is_callable($handler)) {
-                    $_callable = $handler;
-                }
-            }
-        }
-
-        if ($_callable
-            || $_eventHandler
-            || $_eventHandlerClass
-            || $_filterHandler
-            || $_filterHandlerClass
-            || $_invokableClass
-        ) {
-            $instance = new GenericHandler();
-            $instance->callable = $_callable;
-            $instance->eventHandler = $_eventHandler;
-            $instance->eventHandlerClass = $_eventHandlerClass;
-            $instance->filterHandler = $_filterHandler;
-            $instance->filterHandlerClass = $_filterHandlerClass;
-            $instance->invokableClass = $_invokableClass;
-        }
-
-        if (! $instance) {
-            throw new \LogicException(
-                'Unable to ' . __METHOD__ . ': ' . _assert_dump($handler)
-            );
-        }
-
-        return $instance;
-    }
-
-    /**
-     * @param class-string<SubscriberInterface>|SubscriberInterface $subscriber
-     */
-    protected function assertSubscriber($subscriber) : GenericSubscriber
-    {
-        $instance = null;
-
-        $_subscriber = null;
-        $_subscriberClass = null;
-        if ($subscriber instanceof SubscriberInterface) {
-            $_subscriber = $subscriber;
-
-        } elseif (is_string($subscriber) && ('' !== $subscriber)) {
-            if (is_subclass_of($subscriber, SubscriberInterface::class)) {
-                $_subscriberClass = $subscriber;
-            }
-        }
-
-        if ($_subscriber || $_subscriberClass) {
-            $instance = new GenericSubscriber();
-            $instance->subscriber = $_subscriber;
-            $instance->subscriberClass = $_subscriberClass;
-        }
-
-        if (! $instance) {
-            throw new \LogicException(
-                'Unable to ' . __METHOD__ . ': ' . _assert_dump($subscriber)
-            );
-        }
-
-        return $instance;
     }
 }

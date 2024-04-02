@@ -21,6 +21,11 @@ class GenericEvent
      */
     public $eventString;
 
+    /**
+     * @var mixed
+     */
+    public $context;
+
 
     public function getName() : string
     {
@@ -68,5 +73,11 @@ class GenericEvent
     public function getEventString() : string
     {
         return $this->eventString;
+    }
+
+
+    public function getContext()
+    {
+        return $this->context;
     }
 }

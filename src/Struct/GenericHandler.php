@@ -35,6 +35,11 @@ class GenericHandler
      */
     public $filterHandlerClass;
 
+    /**
+     * @var mixed
+     */
+    public $context;
+
 
     public function isSame(GenericHandler $handler) : bool
     {
@@ -86,5 +91,11 @@ class GenericHandler
     public function getFilterHandlerClass() : string
     {
         return $this->filterHandlerClass;
+    }
+
+
+    public function getContext()
+    {
+        return $this->context;
     }
 }

@@ -56,7 +56,10 @@ $eventman->onFilter(DemoFilter::class, 'changeTrueToFalse');
 // > регистрируем подписчика (события и фильтры + методы их обслуживающие в одном классе)
 $eventman->subscribe(DemoSubscriber::class);
 
-$eventman->fireEvent(DemoEvent::class);
+$context = 'My Custom Data';
+// $context = ['my_key' => 'My Custom Data'];
+// $context = (object) ['my_key' => 'My Custom Data'];
+$eventman->fireEvent(DemoEvent::class, $context);
 // > sayHelloWorld
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoEvent
 // > Gzhegow\Eventman\Handler\DemoEventHandler

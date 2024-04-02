@@ -17,6 +17,11 @@ class GenericSubscriber
      */
     public $subscriberClass;
 
+    /**
+     * @var mixed
+     */
+    public $context;
+
 
     public function getName() : string
     {
@@ -71,5 +76,11 @@ class GenericSubscriber
             ?? ($this->subscriberClass ? $this->subscriberClass::filters() : null)
             ?? ($this->subscriber ? $this->subscriber::filters() : null)
             ?? [];
+    }
+
+
+    public function getContext()
+    {
+        return $this->context;
     }
 }

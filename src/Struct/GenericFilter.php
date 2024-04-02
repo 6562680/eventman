@@ -21,6 +21,11 @@ class GenericFilter
      */
     public $filterString;
 
+    /**
+     * @var mixed
+     */
+    public $context;
+
 
     public function getName() : string
     {
@@ -68,5 +73,11 @@ class GenericFilter
     public function getFilterString() : string
     {
         return $this->filterString;
+    }
+
+
+    public function getContext()
+    {
+        return $this->context;
     }
 }
