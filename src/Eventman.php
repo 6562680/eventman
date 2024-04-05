@@ -14,181 +14,32 @@ use Gzhegow\Eventman\Handler\FilterHandlerInterface;
 class Eventman implements EventmanInterface
 {
     /**
-     * @var EventmanFactoryInterface
+     * @var EventmanFactory
      */
     protected $factory;
 
     /**
-     * @var array<int, array{0: string, 1: array}>
+     * @var array<int, GenericHandler|GenericSubscriber>
      */
-    protected $registryEvents = [];
+    protected $queue = [];
     /**
-     * @var array<int, array{0: string, 1: array}>
+     * @var array<string, array<int, bool>
      */
-    protected $registryFilters = [];
+    protected $taggedQueue = [];
 
     /**
-     * @var array<string, int>
+     * @var array<int, callable>
      */
-    protected $registryEventsIndexBySubscriber = [];
+    protected $handlerCallables = [];
     /**
-     * @var array<string, int>
+     * @var array<int, SubscriberInterface>
      */
-    protected $registryFiltersIndexBySubscriber = [];
-
-    /**
-     * @var array<string, array<int, GenericHandler>>
-     */
-    protected $events = [];
-    /**
-     * @var array<string, array<int, GenericHandler>>
-     */
-    protected $filters = [];
-
-    /**
-     * @var array<bool|SubscriberInterface>
-     */
-    protected $subscribers = [];
+    protected $subscriberInstances = [];
 
 
-    public function __construct(
-        EventmanFactoryInterface $factory
-    )
+    public function __construct(EventmanFactoryInterface $factory)
     {
         $this->factory = $factory;
-    }
-
-
-    /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     * @param mixed                                              $context
-     *
-     * @return void
-     */
-    public function fireEvent($event, $context = null) : void
-    {
-        $_event = $this->factory->assertEvent($event);
-
-        $eventName = $_event->getName();
-
-        $handlers = $this->events[ $eventName ] ?? null;
-
-        if (is_null($handlers)) {
-            foreach ( $this->registryEvents as $idx => [ $registryEventName, $arguments ] ) {
-                if ($registryEventName !== $eventName) {
-                    continue;
-                }
-
-                [ $argument ] = $arguments;
-
-                if ($argument instanceof GenericHandler) {
-                    $handlers[] = $argument;
-
-                } elseif ($argument instanceof GenericSubscriber) {
-                    $subscriber = $argument;
-                    $subscriberName = $subscriber->getName();
-                    $subscriberObject = $this->subscribers[ $subscriberName ] ?? null;
-
-                    if (is_bool($subscriberObject)) {
-                        $subscriberObject = $this->factory->newSubscriber($subscriber);
-
-                        $this->subscribers[ $subscriberName ] = $subscriberObject;
-                    }
-
-                    foreach ( $subscriberObject->eventHandlers() as [ $subscriberEventName, $handler ] ) {
-                        if ($subscriberEventName !== $eventName) {
-                            continue;
-                        }
-
-                        $_handler = $this->factory->assertHandler($handler);
-
-                        $handlers[] = $_handler;
-                    }
-                }
-
-                unset($this->registryEvents[ $idx ]);
-            }
-
-            if ($handlers) {
-                foreach ( $handlers as $idx => $handler ) {
-                    $this->events[ $eventName ][ $idx ] = $handler;
-                }
-            }
-        }
-
-        foreach ( $this->events[ $eventName ] ?? [] as $handler ) {
-            $this->factory->callHandler(
-                $handler,
-                [ $event, $context ]
-            );
-        }
-    }
-
-    /**
-     * @param string|class-string<FilterInterface>|FilterInterface $filter
-     * @param mixed                                                $context
-     *
-     * @return mixed
-     */
-    public function fireFilter($filter, $input, $context = null) // : mixed
-    {
-        $_filter = $this->factory->assertFilter($filter);
-
-        $filterName = $_filter->getName();
-
-        $handlers = $this->filters[ $filterName ] ?? null;
-
-        if (is_null($handlers)) {
-            foreach ( $this->registryFilters as $idx => [ $registryFilterName, $arguments ] ) {
-                if ($registryFilterName !== $filterName) {
-                    continue;
-                }
-
-                [ $argument ] = $arguments;
-
-                if ($argument instanceof GenericHandler) {
-                    $handlers[] = $argument;
-
-                } elseif ($argument instanceof GenericSubscriber) {
-                    $subscriber = $argument;
-                    $subscriberName = $subscriber->getName();
-                    $subscriberObject = $this->subscribers[ $subscriberName ] ?? null;
-
-                    if (is_bool($subscriberObject)) {
-                        $subscriberObject = $this->factory->newSubscriber($subscriber);
-
-                        $this->subscribers[ $subscriberName ] = $subscriberObject;
-                    }
-
-                    foreach ( $subscriberObject->filterHandlers() as [ $subscriberFilterName, $handler ] ) {
-                        if ($subscriberFilterName !== $filterName) continue;
-
-                        $_handler = $this->factory->assertHandler($handler);
-
-                        $handlers[] = $_handler;
-                    }
-                }
-
-                unset($this->registryFilters[ $idx ]);
-            }
-
-            if ($handlers) {
-                foreach ( $handlers as $idx => $handler ) {
-                    $this->filters[ $filterName ][ $idx ] = $handler;
-                }
-            }
-        }
-
-        $current = $input;
-
-        foreach ( $this->filters[ $filterName ] ?? [] as $handler ) {
-            $current = $this->factory->callHandler(
-                $handler,
-                [ $filter, $current, $context ]
-            );
-        }
-
-        return $current;
     }
 
 
@@ -203,44 +54,19 @@ class Eventman implements EventmanInterface
         $_event = $this->factory->assertEvent($event);
         $_handler = $this->factory->assertHandler($handler);
 
-        $eventName = $_event->getName();
+        $this->queue[] = $_handler;
 
-        $this->registryEvents[] = [ $eventName, [ $_handler, $_event ] ];
-    }
+        $idx = _array_key_last($this->queue);
 
-    /**
-     * @param string|class-string<EventInterface>|EventInterface                 $event
-     * @param callable|class-string<EventHandlerInterface>|EventHandlerInterface $handler
-     *
-     * @return void
-     */
-    public function offEvent($event, $handler = null) : void
-    {
-        $_event = $this->factory->assertEvent($event);
+        $this->taggedQueue[ 'event' ][ $idx ] = true;
 
-        $_handler = null;
-        if ($handler) {
-            $_handler = $this->factory->assertHandler($handler);
-        }
+        $eventType = null
+            ?? $_event->eventClass
+            ?? $_event->eventObjectClass
+            ?? $_event->eventClassString
+            ?? $_event->eventString;
 
-        $eventName = $_event->getName();
-
-        foreach ( $this->registryEvents as $idx => [ $registryEventName ] ) {
-            if ($registryEventName === $eventName) {
-                unset($this->registryEvents[ $idx ]);
-            }
-        }
-
-        if (! $_handler) {
-            unset($this->events[ $eventName ]);
-
-        } else {
-            foreach ( $this->events[ $eventName ] ?? [] as $idx => $eventHandler ) {
-                if ($eventHandler->isSame($_handler)) {
-                    unset($this->events[ $eventName ][ $idx ]);
-                }
-            }
-        }
+        $this->taggedQueue[ $eventType ][ $idx ] = true;
     }
 
 
@@ -255,44 +81,19 @@ class Eventman implements EventmanInterface
         $_filter = $this->factory->assertFilter($filter);
         $_handler = $this->factory->assertHandler($handler);
 
-        $filterName = $_filter->getName();
+        $this->queue[] = $_handler;
 
-        $this->registryFilters[] = [ $filterName, [ $_handler, $_filter ] ];
-    }
+        $idx = _array_key_last($this->queue);
 
-    /**
-     * @param string|class-string<FilterInterface>|FilterInterface                 $filter
-     * @param callable|class-string<FilterHandlerInterface>|FilterHandlerInterface $handler
-     *
-     * @return void
-     */
-    public function offFilter($filter, $handler = null) : void
-    {
-        $_filter = $this->factory->assertFilter($filter);
+        $this->taggedQueue[ 'filter' ][ $idx ] = true;
 
-        $_handler = null;
-        if ($handler) {
-            $_handler = $this->factory->assertHandler($handler);
-        }
+        $filterType = null
+            ?? $_filter->filterClass
+            ?? $_filter->filterObjectClass
+            ?? $_filter->filterClassString
+            ?? $_filter->filterString;
 
-        $filterName = $_filter->getName();
-
-        foreach ( $this->registryFilters as $idx => [ $registryFilterName ] ) {
-            if ($registryFilterName === $filterName) {
-                unset($this->registryFilters[ $idx ]);
-            }
-        }
-
-        if (! $_handler) {
-            unset($this->filters[ $filterName ]);
-
-        } else {
-            foreach ( $this->filters[ $filterName ] ?? [] as $idx => $filterHandler ) {
-                if ($filterHandler->isSame($_handler)) {
-                    unset($this->filters[ $filterName ][ $idx ]);
-                }
-            }
-        }
+        $this->taggedQueue[ $filterType ][ $idx ] = true;
     }
 
 
@@ -305,50 +106,146 @@ class Eventman implements EventmanInterface
     {
         $_subscriber = $this->factory->assertSubscriber($subscriber);
 
-        $subscriberName = $_subscriber->getName();
-
-        if (isset($this->subscribers[ $subscriberName ])) {
-            throw new \RuntimeException('Subscriber already registered: ' . _assert_dump($subscriber));
-        }
-
-        $this->subscribers[ $subscriberName ] = true;
-
         $events = $_subscriber->getEvents();
         $filters = $_subscriber->getFilters();
 
-        foreach ( $events as $eventName => $bool ) {
-            $this->registryEvents[] = [ $eventName, [ $_subscriber ] ];
-            $this->registryEventsIndexBySubscriber[ $subscriberName ][] = _array_key_last($this->registryEvents);
+        foreach ( $events as $eventType => $bool ) {
+            $this->queue[] = $_subscriber;
+
+            $idx = _array_key_last($this->queue);
+
+            $this->taggedQueue[ 'event' ][ $idx ] = true;
+            $this->taggedQueue[ $eventType ][ $idx ] = true;
         }
 
-        foreach ( $filters as $filterName => $bool ) {
-            $this->registryFilters[] = [ $filterName, [ $_subscriber ] ];
-            $this->registryFiltersIndexBySubscriber[ $subscriberName ][] = _array_key_last($this->registryFilters);
+        foreach ( $filters as $filterType => $bool ) {
+            $this->queue[] = $_subscriber;
+
+            $idx = _array_key_last($this->queue);
+
+            $this->taggedQueue[ 'filter' ][ $idx ] = true;
+            $this->taggedQueue[ $filterType ][ $idx ] = true;
         }
     }
 
-    /**
-     * @param class-string<SubscriberInterface>|SubscriberInterface $subscriber
-     *
-     * @return void
-     */
-    public function unsubscribe($subscriber) : void
+
+    public function fireEvent($event, $context = null) : void
     {
-        $_subscriber = $this->factory->assertSubscriber($subscriber);
+        $_event = $this->factory->assertEvent($event);
 
-        $subscriberKey = $_subscriber->getName();
+        $eventType = null
+            ?? $_event->eventClass
+            ?? $_event->eventObjectClass
+            ?? $_event->eventClassString
+            ?? $_event->eventString;
 
-        foreach ( $this->registryEventsIndexBySubscriber[ $subscriberKey ] ?? [] as $idx ) {
-            unset($this->registryEvents[ $idx ]);
+        $index = array_intersect_key(
+            $this->taggedQueue[ $eventType ] ?? [],
+            $this->taggedQueue[ 'event' ] ?? []
+        );
+
+        $callables = [];
+        foreach ( $index as $i => $bool ) {
+            $handlerGroup = $this->queue[ $i ];
+
+            if ($handlerGroup instanceof GenericHandler) {
+                $key = $i;
+
+                if (! isset($this->handlerCallables[ $key ])) {
+                    $this->handlerCallables[ $key ] = $this->factory->newHandlerCallable($handlerGroup);
+                }
+
+                $callables[ $key ] = $this->handlerCallables[ $key ];
+
+            } elseif ($handlerGroup instanceof GenericSubscriber) {
+                if (! isset($this->subscriberInstances[ $i ])) {
+                    $this->subscriberInstances[ $i ] = $this->factory->newSubscriber($handlerGroup);
+                }
+
+                $subscriberObject = $this->subscriberInstances[ $i ];
+
+                foreach ( $subscriberObject->eventHandlers() as $ii => [ $sEventType, $sHandler ] ) {
+                    if ($sEventType !== $eventType) {
+                        continue;
+                    }
+
+                    $key = "{$i}.{$ii}";
+
+                    if (! isset($this->handlerCallables[ $key ])) {
+                        $_sHandler = $this->factory->assertHandler($sHandler);
+
+                        $this->handlerCallables[ $key ] = $this->factory->newHandlerCallable($_sHandler);
+                    }
+
+                    $callables[ $key ] = $this->handlerCallables[ $key ];
+                }
+            }
         }
 
-        foreach ( $this->registryFiltersIndexBySubscriber[ $subscriberKey ] ?? [] as $idx ) {
-            unset($this->registryFilters[ $idx ]);
+        foreach ( $callables ?? [] as $callable ) {
+            $this->factory->call($callable, [ $event, $context ]);
+        }
+    }
+
+    public function applyFilter($filter, $input, $context = null) // : mixed
+    {
+        $_filter = $this->factory->assertFilter($filter);
+
+        $filterType = null
+            ?? $_filter->filterClass
+            ?? $_filter->filterObjectClass
+            ?? $_filter->filterClassString
+            ?? $_filter->filterString;
+
+        $index = array_intersect_key(
+            $this->taggedQueue[ $filterType ] ?? [],
+            $this->taggedQueue[ 'filter' ] ?? []
+        );
+
+        $callables = [];
+        foreach ( $index as $i => $bool ) {
+            $handlerGroup = $this->queue[ $i ];
+
+            if ($handlerGroup instanceof GenericHandler) {
+                $key = $i;
+
+                if (! isset($this->handlerCallables[ $key ])) {
+                    $this->handlerCallables[ $key ] = $this->factory->newHandlerCallable($handlerGroup);
+                }
+
+                $callables[ $key ] = $this->handlerCallables[ $key ];
+
+            } elseif ($handlerGroup instanceof GenericSubscriber) {
+                if (! isset($this->subscriberInstances[ $i ])) {
+                    $this->subscriberInstances[ $i ] = $this->factory->newSubscriber($handlerGroup);
+                }
+
+                $subscriberObject = $this->subscriberInstances[ $i ];
+
+                foreach ( $subscriberObject->filterHandlers() as $ii => [ $sFilterType, $sHandler ] ) {
+                    if ($sFilterType !== $filterType) {
+                        continue;
+                    }
+
+                    $key = "{$i}.{$ii}";
+
+                    if (! isset($this->handlerCallables[ $key ])) {
+                        $_sHandler = $this->factory->assertHandler($sHandler);
+
+                        $this->handlerCallables[ $key ] = $this->factory->newHandlerCallable($_sHandler);
+                    }
+
+                    $callables[ $key ] = $this->handlerCallables[ $key ];
+                }
+            }
         }
 
-        unset($this->registryEventsIndexBySubscriber[ $subscriberKey ]);
-        unset($this->registryFiltersIndexBySubscriber[ $subscriberKey ]);
+        $current = $input;
 
-        unset($this->subscribers[ $subscriberKey ]);
+        foreach ( $callables ?? [] as $callable ) {
+            $current = $this->factory->call($callable, [ $filter, $current, $context ]);
+        }
+
+        return $current;
     }
 }

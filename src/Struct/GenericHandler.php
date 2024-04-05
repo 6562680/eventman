@@ -9,15 +9,6 @@ use Gzhegow\Eventman\Handler\FilterHandlerInterface;
 class GenericHandler
 {
     /**
-     * @var callable
-     */
-    public $callable;
-    /**
-     * @var class-string
-     */
-    public $invokableClass;
-
-    /**
      * @var EventHandlerInterface
      */
     public $eventHandler;
@@ -36,34 +27,24 @@ class GenericHandler
     public $filterHandlerClass;
 
     /**
+     * @var callable
+     */
+    public $callable;
+
+    /**
+     * @var class-string
+     */
+    public $invokableClass;
+
+    /**
+     * @var array|callable
+     */
+    public $publicMethod;
+
+    /**
      * @var mixed
      */
     public $context;
-
-
-    public function isSame(GenericHandler $handler) : bool
-    {
-        return ($this->callable && ($this->callable === $handler->callable))
-            || ($this->eventHandler && ($this->eventHandler === $handler->eventHandler))
-            || ($this->filterHandler && ($this->filterHandler === $handler->filterHandler))
-            || ($this->eventHandlerClass && ($this->eventHandlerClass === $handler->eventHandlerClass))
-            || ($this->filterHandlerClass && ($this->filterHandlerClass === $handler->filterHandlerClass))
-            || ($this->invokableClass && ($this->invokableClass === $handler->invokableClass));
-    }
-
-
-    public function getCallable() : callable
-    {
-        return $this->callable;
-    }
-
-    /**
-     * @return class-string
-     */
-    public function getInvokableClass() : string
-    {
-        return $this->invokableClass;
-    }
 
 
     public function getEventHandler() : EventHandlerInterface
@@ -91,6 +72,30 @@ class GenericHandler
     public function getFilterHandlerClass() : string
     {
         return $this->filterHandlerClass;
+    }
+
+
+    public function getCallable() : callable
+    {
+        return $this->callable;
+    }
+
+
+    /**
+     * @return class-string
+     */
+    public function getInvokableClass() : string
+    {
+        return $this->invokableClass;
+    }
+
+
+    /**
+     * @return array|callable
+     */
+    public function getPublicMethod() : array
+    {
+        return $this->publicMethod;
     }
 
 

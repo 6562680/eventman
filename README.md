@@ -42,6 +42,7 @@ function changeTrueToFalse($filter, $bool)
     return ! $bool;
 }
 
+
 // > напишите свою фабрику, которая будет использовать контейнер зависимостей
 $eventmanFactory = new EventmanFactory();
 
@@ -57,20 +58,25 @@ $eventman->onFilter(DemoFilter::class, 'changeTrueToFalse');
 // > регистрируем подписчика (события и фильтры + методы их обслуживающие в одном классе)
 $eventman->subscribe(DemoSubscriber::class);
 
+// > можно задать какие-то свои настройки, которые будут нужны позже
 $context = 'My Custom Data';
 // $context = ['my_key' => 'My Custom Data'];
 // $context = (object) ['my_key' => 'My Custom Data'];
 
+// > стреляем событием, событие не возвращает данных
 $eventman->fireEvent(DemoEvent::class, $context);
 // > sayHelloWorld
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoEvent
 // > Gzhegow\Eventman\Handler\DemoEventHandler
 
+// > фильтруем переменную, проводя её через все назначенные фильтры
 $input = true;
-$result = $eventman->fireFilter(DemoFilter::class, $input, $context);
+$result = $eventman->applyFilter(DemoFilter::class, $input, $context);
 // > changeTrueToFalse
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoFilter
 // > Gzhegow\Eventman\Handler\DemoFilterHandler
 var_dump($result);
 // > bool(false)
+
+dd($eventman);
 ```

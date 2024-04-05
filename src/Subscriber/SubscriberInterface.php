@@ -2,32 +2,27 @@
 
 namespace Gzhegow\Eventman\Subscriber;
 
-use Gzhegow\Eventman\Event\EventInterface;
-use Gzhegow\Eventman\Filter\FilterInterface;
-use Gzhegow\Eventman\Handler\EventHandlerInterface;
-use Gzhegow\Eventman\Handler\FilterHandlerInterface;
-
 
 interface SubscriberInterface
 {
     /**
-     * @return array{0: string|EventInterface, 1: string|EventHandlerInterface}[]
+     * @return array{0: string, 1: callable}[]
      */
     public function eventHandlers() : array;
 
     /**
-     * @return array{0: string|FilterInterface, 1: string|FilterHandlerInterface}[]
+     * @return array{0: string, 1: callable}[]
      */
     public function filterHandlers() : array;
 
 
     /**
-     * @return array<class-string<EventInterface>,bool>
+     * @return array<string, bool>
      */
     public static function events() : array;
 
     /**
-     * @return array<class-string<FilterInterface>,bool>
+     * @return array<string, bool>
      */
     public static function filters() : array;
 }

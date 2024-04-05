@@ -3,7 +3,6 @@
 namespace Gzhegow\Eventman\Struct;
 
 use Gzhegow\Eventman\Event\EventInterface;
-use Gzhegow\Eventman\Interfaces\HasNameInterface;
 
 
 class GenericEvent
@@ -16,6 +15,21 @@ class GenericEvent
      * @var class-string<EventInterface>|EventInterface
      */
     public $eventClass;
+
+    /**
+     * @var object
+     */
+    public $eventObject;
+    /**
+     * @var class-string
+     */
+    public $eventObjectClass;
+
+    /**
+     * @var class-string
+     */
+    public $eventClassString;
+
     /**
      * @var string
      */
@@ -27,48 +41,42 @@ class GenericEvent
     public $context;
 
 
-    public function getName() : string
-    {
-        if ($this->eventClass) {
-            return $this->eventClass;
-        }
-
-        if ($this->eventString) {
-            return $this->eventString;
-        }
-
-        if ($this->event) {
-            if ($this->event instanceof HasNameInterface) {
-                return $this->event->getName();
-            }
-
-            return get_class($this->event);
-        }
-
-        throw new \RuntimeException('Unable to extract `name` from event');
-    }
-
-
-    public function isSame(GenericEvent $event) : bool
-    {
-        return ($this->eventString && ($this->eventString === $event->eventString))
-            || ($this->event && ($this->event === $event->event))
-            || ($this->eventClass && ($this->eventClass === $event->eventClass));
-    }
-
-
     public function getEvent() : EventInterface
     {
         return $this->event;
     }
 
     /**
-     * @return class-string<EventInterface>
+     * @return class-string<EventInterface>|EventInterface
      */
     public function getEventClass() : string
     {
         return $this->eventClass;
     }
+
+
+    public function getEventObject() : object
+    {
+        return $this->eventObject;
+    }
+
+    /**
+     * @return class-string
+     */
+    public function getEventObjectClass() : string
+    {
+        return $this->eventObjectClass;
+    }
+
+
+    /**
+     * @return class-string
+     */
+    public function getEventClassString() : string
+    {
+        return $this->eventClassString;
+    }
+
 
     public function getEventString() : string
     {
