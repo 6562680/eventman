@@ -231,7 +231,7 @@ class Eventman implements EventmanInterface
         $pipeline = $this->factory->newPipeline($middlewares);
 
         if (! $callables) {
-            $nullMiddleware = function (
+            $nullMiddleware = static function (
                 $event, Pipeline $pipeline,
                 $input = null
             ) {
@@ -293,7 +293,7 @@ class Eventman implements EventmanInterface
         $pipeline = $this->factory->newPipeline($middlewares);
 
         if (! $callables) {
-            $nullMiddleware = function (
+            $nullMiddleware = static function (
                 $event, Pipeline $pipeline,
                 $input = null
             ) {
