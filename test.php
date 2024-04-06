@@ -59,7 +59,8 @@ $context = 'My Custom Data';
 // $context = (object) ['my_key' => 'My Custom Data'];
 
 // > стреляем событием, событие не возвращает данных
-$eventman->fireEvent(DemoEvent::class, $context);
+$input = null; // > можно передать входные данные, шина передаст оригинал в каждый обработчик
+$eventman->fireEvent(DemoEvent::class, $input, $context);
 // > middleware_wrapExisting@before
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@before
 // > Gzhegow\Eventman\Handler\DemoMiddleware::handle@before
@@ -73,7 +74,7 @@ $eventman->fireEvent(DemoEvent::class, $context);
 echo PHP_EOL;
 
 // > фильтруем переменную, проводя её через все назначенные фильтры
-$input = true;
+$input = true; // > входные данные меняются по цепи, из предыдущего обработчика в следующий
 $result = $eventman->applyFilter(DemoEvent::class, $input, $context);
 // > middleware_wrapExisting@before
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@before
