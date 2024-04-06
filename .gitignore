@@ -1,5 +1,7 @@
-/.old
-/.new
-/.data
 /.idea
+
 /vendor
+
+/.data
+/.new
+/.old
