@@ -12,7 +12,6 @@ use Gzhegow\Eventman\Handler\MiddlewareInterface;
 use Gzhegow\Eventman\Handler\EventHandlerInterface;
 use Gzhegow\Eventman\Subscriber\SubscriberInterface;
 use Gzhegow\Eventman\Handler\FilterHandlerInterface;
-use Gzhegow\Eventman\Handler\Internal\NullMiddleware;
 use Gzhegow\Eventman\Subscriber\EventSubscriberInterface;
 use Gzhegow\Eventman\Subscriber\FilterSubscriberInterface;
 use Gzhegow\Eventman\Subscriber\MiddlewareSubscriberInterface;
@@ -232,10 +231,17 @@ class Eventman implements EventmanInterface
         $pipeline = $this->factory->newPipeline($middlewares);
 
         if (! $callables) {
-            $_middleware = $this->factory->assertMiddleware(NullMiddleware::class);
+            $nullMiddleware = function (
+                $event, Pipeline $pipeline,
+                $input = null
+            ) {
+                return $input;
+            };
+
+            $_middleware = $this->factory->assertMiddleware($nullMiddleware);
 
         } else {
-            $handlersMiddleware = function (
+            $callablesMiddleware = function (
                 $event, Pipeline $pipeline,
                 $input = null, $context = null
             ) use ($callables) {
@@ -244,7 +250,7 @@ class Eventman implements EventmanInterface
                 }
             };
 
-            $_middleware = $this->factory->assertMiddleware($handlersMiddleware);
+            $_middleware = $this->factory->assertMiddleware($callablesMiddleware);
         }
 
         $pipeline->addMiddleware($_middleware);
@@ -287,10 +293,17 @@ class Eventman implements EventmanInterface
         $pipeline = $this->factory->newPipeline($middlewares);
 
         if (! $callables) {
-            $_middleware = $this->factory->assertMiddleware(NullMiddleware::class);
+            $nullMiddleware = function (
+                $event, Pipeline $pipeline,
+                $input = null
+            ) {
+                return $input;
+            };
+
+            $_middleware = $this->factory->assertMiddleware($nullMiddleware);
 
         } else {
-            $handlersMiddleware = function (
+            $callablesMiddleware = function (
                 $event, Pipeline $pipeline,
                 $input = null, $context = null
             ) use ($callables) {
@@ -303,7 +316,7 @@ class Eventman implements EventmanInterface
                 return $current;
             };
 
-            $_middleware = $this->factory->assertMiddleware($handlersMiddleware);
+            $_middleware = $this->factory->assertMiddleware($callablesMiddleware);
         }
 
         $pipeline->addMiddleware($_middleware);
