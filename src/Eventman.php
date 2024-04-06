@@ -26,7 +26,7 @@ class Eventman implements EventmanInterface
     protected $factory;
 
     /**
-     * @var array<int, GenericHandler|GenericSubscriber>
+     * @var array<int, GenericHandler|GenericMiddleware|GenericSubscriber>
      */
     protected $queue = [];
     /**
