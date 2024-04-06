@@ -10,19 +10,19 @@ use Gzhegow\Eventman\Subscriber\DemoSubscriber;
 require_once __DIR__ . '/vendor/autoload.php';
 
 
-function sayHelloWorld($event)
+function eventHandler_sayHelloWorld($event)
 {
     echo __FUNCTION__ . PHP_EOL;
 }
 
-function changeTrueToFalse($event, $bool)
+function filterHandler_changeTrueToFalse($event, $bool)
 {
     echo __FUNCTION__ . PHP_EOL;
 
     return ! $bool;
 }
 
-function middleThis($event, Pipeline $pipeline)
+function middleware_wrapExisting($event, Pipeline $pipeline)
 {
     echo __FUNCTION__ . '@before' . PHP_EOL;
 
@@ -41,14 +41,14 @@ $eventmanFactory = new EventmanFactory();
 $eventman = new Eventman($eventmanFactory);
 
 // > регистрируем событие
-$eventman->onEvent(DemoEvent::class, 'sayHelloWorld');
+$eventman->onEvent(DemoEvent::class, 'eventHandler_sayHelloWorld');
 // > оборачиваем в middleware
-$eventman->middleEvent(DemoEvent::class, 'middleThis');
+$eventman->middleEvent(DemoEvent::class, 'middleware_wrapExisting');
 
 // > регистрируем фильтр
-$eventman->onFilter(DemoEvent::class, 'changeTrueToFalse');
+$eventman->onFilter(DemoEvent::class, 'filterHandler_changeTrueToFalse');
 // > оборачиваем в middleware
-$eventman->middleFilter(DemoEvent::class, 'middleThis');
+$eventman->middleFilter(DemoEvent::class, 'middleware_wrapExisting');
 
 // > регистрируем подписчика (события/фильтры + обработчики/мидлвары их обслуживающие в одном классе)
 $eventman->subscribe(DemoSubscriber::class);
@@ -60,30 +60,30 @@ $context = 'My Custom Data';
 
 // > стреляем событием, событие не возвращает данных
 $eventman->fireEvent(DemoEvent::class, $context);
-// > middleThis@before
+// > middleware_wrapExisting@before
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@before
 // > Gzhegow\Eventman\Handler\DemoMiddleware::handle@before
-// > sayHelloWorld
+// > eventHandler_sayHelloWorld
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoEvent
 // > Gzhegow\Eventman\Handler\DemoEventHandler::handle
 // > Gzhegow\Eventman\Handler\DemoMiddleware::handle@after
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@after
-// > middleThis@after
+// > middleware_wrapExisting@after
 
 echo PHP_EOL;
 
 // > фильтруем переменную, проводя её через все назначенные фильтры
 $input = true;
 $result = $eventman->applyFilter(DemoEvent::class, $input, $context);
-// > middleThis@before
+// > middleware_wrapExisting@before
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@before
 // > Gzhegow\Eventman\Handler\DemoMiddleware::handle@before
-// > changeTrueToFalse
+// > filterHandler_changeTrueToFalse
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoFilter
 // > Gzhegow\Eventman\Handler\DemoFilterHandler::handle
 // > Gzhegow\Eventman\Handler\DemoMiddleware::handle@after
 // > Gzhegow\Eventman\Subscriber\DemoSubscriber::demoMiddleware@after
-// > middleThis@after
+// > middleware_wrapExisting@after
 
 echo PHP_EOL;
 
