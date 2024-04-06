@@ -2,12 +2,13 @@
 
 namespace Gzhegow\Eventman;
 
+use Gzhegow\Eventman\Pipeline\Pipeline;
 use Gzhegow\Eventman\Struct\GenericEvent;
 use Gzhegow\Eventman\Event\EventInterface;
-use Gzhegow\Eventman\Struct\GenericFilter;
 use Gzhegow\Eventman\Struct\GenericHandler;
-use Gzhegow\Eventman\Filter\FilterInterface;
 use Gzhegow\Eventman\Struct\GenericSubscriber;
+use Gzhegow\Eventman\Struct\GenericMiddleware;
+use Gzhegow\Eventman\Handler\MiddlewareInterface;
 use Gzhegow\Eventman\Handler\EventHandlerInterface;
 use Gzhegow\Eventman\Subscriber\SubscriberInterface;
 use Gzhegow\Eventman\Handler\FilterHandlerInterface;
@@ -81,6 +82,66 @@ class EventmanFactory implements EventmanFactoryInterface
     }
 
 
+    public function newMiddlewareCallable(GenericMiddleware $middleware) : callable
+    {
+        return null
+            ?? $this->newMiddlewareCallableByCallable($middleware)
+            ?? $this->newMiddlewareCallableByMiddleware($middleware)
+            ?? $this->newMiddlewareCallableByInvokableClass($middleware)
+            ?? $this->newMiddlewareCallableByPublicMethod($middleware);
+    }
+
+    protected function newMiddlewareCallableByCallable(GenericMiddleware $middleware) : ?callable
+    {
+        if (! $middleware->callable) return null;
+
+        return $middleware->callable;
+    }
+
+    protected function newMiddlewareCallableByMiddleware(GenericMiddleware $middleware) : ?callable
+    {
+        if ($middleware->middleware) {
+            return [ $middleware->middleware, 'handle' ];
+        }
+
+        if ($middleware->middlewareClass) {
+            $class = $middleware->middlewareClass;
+
+            return [ new $class(), 'handle' ];
+        }
+
+        return null;
+    }
+
+    protected function newMiddlewareCallableByInvokableClass(GenericMiddleware $middleware) : ?callable
+    {
+        if (! $middleware->invokableClass) return null;
+
+        $class = $middleware->getInvokableClass();
+
+        return new $class();
+    }
+
+    protected function newMiddlewareCallableByPublicMethod(GenericMiddleware $middleware) : ?callable
+    {
+        if (! $middleware->publicMethod) return null;
+
+        [ $class, $method ] = $middleware->publicMethod;
+
+        return [ new $class(), $method ];
+    }
+
+
+    /**
+     * @param GenericMiddleware[] $middlewares
+     */
+    public function newPipeline(array $middlewares) : Pipeline
+    {
+        $pipeline = new Pipeline($this, $middlewares);
+
+        return $pipeline;
+    }
+
     public function newSubscriber(GenericSubscriber $subscriber) : SubscriberInterface
     {
         $class = $subscriber->getSubscriberClass();
@@ -99,6 +160,10 @@ class EventmanFactory implements EventmanFactoryInterface
     }
 
 
+    /**
+     * @param string|EventInterface|GenericEvent $event
+     * @param mixed|null                         $context
+     */
     public function assertEvent($event, $context = null) : GenericEvent
     {
         if (is_a($event, GenericEvent::class)) {
@@ -125,12 +190,6 @@ class EventmanFactory implements EventmanFactoryInterface
 
         } elseif (null !== ($_event = _filter_strlen($event))) {
             if (class_exists($_event)) {
-                if (is_subclass_of($_event, FilterInterface::class)) {
-                    throw new \LogicException(
-                        "The `event` must not be subclass of: " . FilterInterface::class
-                    );
-                }
-
                 if (is_subclass_of($_event, EventInterface::class)) {
                     $_eventClass = $_event;
 
@@ -169,76 +228,10 @@ class EventmanFactory implements EventmanFactoryInterface
         return $generic;
     }
 
-    public function assertFilter($filter, $context = null) : GenericFilter
-    {
-        if (is_a($filter, GenericFilter::class)) {
-            return $filter;
-        }
-
-        $_filter = null;
-        $_filterClass = null;
-        $_filterObject = null;
-        $_filterObjectClass = null;
-        $_filterClassString = null;
-        $_filterString = null;
-        if (is_object($filter)) {
-            $class = get_class($filter);
-
-            if ($filter instanceof FilterInterface) {
-                $_filter = $filter;
-                $_filterClass = $class;
-
-            } else {
-                $_filterObject = $filter;
-                $_filterObjectClass = $class;
-            }
-
-        } elseif (null !== ($_filter = _filter_strlen($filter))) {
-            if (class_exists($_filter)) {
-                if (is_subclass_of($_filter, EventInterface::class)) {
-                    throw new \LogicException(
-                        "The `filter` must not be subclass of: " . EventInterface::class
-                    );
-                }
-
-                if (is_subclass_of($_filter, FilterInterface::class)) {
-                    $_filterClass = $_filter;
-
-                } else {
-                    $_filterClassString = $_filter;
-                }
-
-            } else {
-                $_filterString = $_filter;
-            }
-        }
-
-        $parsed = null
-            ?? $_filter
-            ?? $_filterClass
-            ?? $_filterObject
-            ?? $_filterClassString
-            ?? $_filterString;
-
-        if ((null === $parsed)) {
-            throw new \LogicException(
-                'Unable to ' . __METHOD__ . ': '
-                . _assert_dump($filter)
-            );
-        }
-
-        $generic = new GenericFilter();
-        $generic->filter = $_filter;
-        $generic->filterClass = $_filterClass;
-        $generic->filterObject = $_filterObject;
-        $generic->filterObjectClass = $_filterObjectClass;
-        $generic->filterClassString = $_filterClassString;
-        $generic->filterString = $_filterString;
-        $generic->context = $context;
-
-        return $generic;
-    }
-
+    /**
+     * @param callable|EventHandlerInterface|FilterHandlerInterface|GenericHandler $handler
+     * @param mixed|null                                                           $context
+     */
     public function assertHandler($handler, $context = null) : GenericHandler
     {
         if (is_a($handler, GenericHandler::class)) {
@@ -269,7 +262,7 @@ class EventmanFactory implements EventmanFactoryInterface
             if (is_callable($handler)) {
                 $_callable = $handler;
 
-            } elseif (null !== ($_handler = _filter_method($handler))) {
+            } elseif (($_handler = _filter_method($handler, $rm)) && $rm->isPublic()) {
                 $_publicMethod = $_handler;
             }
 
@@ -321,6 +314,83 @@ class EventmanFactory implements EventmanFactoryInterface
         return $generic;
     }
 
+    /**
+     * @param callable|MiddlewareInterface|GenericMiddleware $middleware
+     * @param mixed|null                                     $context
+     */
+    public function assertMiddleware($middleware, $context = null) : GenericMiddleware
+    {
+        if (is_a($middleware, GenericMiddleware::class)) {
+            return $middleware;
+        }
+
+        $_middleware = null;
+        $_middlewareClass = null;
+        $_callable = null;
+        $_invokableClass = null;
+        $_publicMethod = null;
+        if (is_object($middleware)) {
+            if ($middleware instanceof MiddlewareInterface) {
+                $_middleware = $middleware;
+                $_middlewareClass = get_class($middleware);
+
+            } elseif (is_callable($middleware)) {
+                $_callable = $middleware;
+            }
+
+        } elseif (is_array($middleware)) {
+            if (is_callable($middleware)) {
+                $_callable = $middleware;
+
+            } elseif (($_middleware = _filter_method($middleware, $rm)) && $rm->isPublic()) {
+                $_publicMethod = $_middleware;
+            }
+
+        } else {
+            if (is_string($middleware) && ('' !== $middleware)) {
+                if (class_exists($middleware)) {
+                    if (is_subclass_of($middleware, MiddlewareInterface::class)) {
+                        $_middlewareClass = $middleware;
+
+                    } elseif (method_exists($middleware, '__invoke')) {
+                        $_invokableClass = $middleware;
+                    }
+
+                } elseif (is_callable($middleware)) {
+                    $_callable = $middleware;
+                }
+            }
+        }
+
+        $parsed = null
+            ?? $_middleware
+            ?? $_middlewareClass
+            ?? $_callable
+            ?? $_invokableClass
+            ?? $_publicMethod;
+
+        if ((null === $parsed)) {
+            throw new \LogicException(
+                'Unable to ' . __METHOD__ . ': '
+                . _assert_dump($middleware)
+            );
+        }
+
+        $generic = new GenericMiddleware();
+        $generic->middleware = $_middleware;
+        $generic->middlewareClass = $_middlewareClass;
+        $generic->callable = $_callable;
+        $generic->invokableClass = $_invokableClass;
+        $generic->publicMethod = $_publicMethod;
+        $generic->context = $context;
+
+        return $generic;
+    }
+
+    /**
+     * @param SubscriberInterface|GenericSubscriber $subscriber
+     * @param mixed|null                            $context
+     */
     public function assertSubscriber($subscriber, $context = null) : GenericSubscriber
     {
         if (is_a($subscriber, GenericSubscriber::class)) {
@@ -357,5 +427,17 @@ class EventmanFactory implements EventmanFactoryInterface
         $generic->context = $context;
 
         return $generic;
+    }
+
+
+    public function assertEventPoint(GenericEvent $event) : string
+    {
+        $eventType = null
+            ?? $event->eventClass
+            ?? $event->eventObjectClass
+            ?? $event->eventClassString
+            ?? $event->eventString;
+
+        return $eventType;
     }
 }

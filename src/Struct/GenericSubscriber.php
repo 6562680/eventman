@@ -3,6 +3,9 @@
 namespace Gzhegow\Eventman\Struct;
 
 use Gzhegow\Eventman\Subscriber\SubscriberInterface;
+use Gzhegow\Eventman\Subscriber\EventSubscriberInterface;
+use Gzhegow\Eventman\Subscriber\FilterSubscriberInterface;
+use Gzhegow\Eventman\Subscriber\MiddlewareSubscriberInterface;
 
 
 class GenericSubscriber
@@ -36,20 +39,36 @@ class GenericSubscriber
     }
 
 
-    public function getEvents() : array
+    public function getEventList() : array
     {
-        return null
-            ?? ($this->subscriberClass ? $this->subscriberClass::events() : null)
-            ?? ($this->subscriber ? $this->subscriber::events() : null)
-            ?? [];
+        $subscriber = $this->subscriber ?? $this->subscriberClass;
+
+        if (! (
+            is_a($subscriber, EventSubscriberInterface::class, true)
+            || is_a($subscriber, MiddlewareSubscriberInterface::class, true)
+        )) {
+            return [];
+        }
+
+        $eventList = $subscriber::eventList();
+
+        return $eventList;
     }
 
-    public function getFilters() : array
+    public function getFilterList() : array
     {
-        return null
-            ?? ($this->subscriberClass ? $this->subscriberClass::filters() : null)
-            ?? ($this->subscriber ? $this->subscriber::filters() : null)
-            ?? [];
+        $subscriber = $this->subscriber ?? $this->subscriberClass;
+
+        if (! (
+            is_a($subscriber, FilterSubscriberInterface::class, true)
+            || is_a($subscriber, MiddlewareSubscriberInterface::class, true)
+        )) {
+            return [];
+        }
+
+        $filterList = $subscriber::filterList();
+
+        return $filterList;
     }
 
 

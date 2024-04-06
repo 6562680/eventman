@@ -5,9 +5,9 @@ namespace Gzhegow\Eventman\Handler;
 
 class DemoFilterHandler implements FilterHandlerInterface
 {
-    public function handle($filter, $input, $context = null)
+    public function handle($event, $input, $context = null)
     {
-        echo __CLASS__ . PHP_EOL;
+        echo __METHOD__ . PHP_EOL;
 
         $result = $input;
 

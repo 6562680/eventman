@@ -287,10 +287,15 @@ function _assert_word($value,
 }
 
 
-function _filter_method($method) : ?array
+function _filter_method($method, \ReflectionMethod &$rm = null) : ?array
 {
+    $rm = null;
+
+    $useReflection = func_num_args() === 2;
+
     $_class = null;
     $_object = null;
+    $_objectOrClass = null;
     $_method = null;
     if (is_array($method)) {
         [ $_objectOrClass, $_method ] = $method + [ null, null ];
@@ -304,30 +309,58 @@ function _filter_method($method) : ?array
 
     } elseif (is_string($method) && (false !== strpos('::', $method))) {
         [ $_class, $_method ] = explode('::', $method, 2);
-    }
 
-    if ($_class && ! class_exists($_class)) {
-        return null;
+        $_objectOrClass = $_class;
     }
-
-    $_objectOrClass = $_object ?? $_class;
 
     if (! $_objectOrClass) {
         return null;
     }
 
-    if (! $_method || ! method_exists($_objectOrClass, $_method)) {
-        return null;
+    $_methodArray = [ $_objectOrClass, $_method ];
+
+    if ($_object && is_callable($_methodArray)) {
+        return $_method;
     }
 
-    return [ $_objectOrClass, $method ];
+    if ($useReflection) {
+        try {
+            $rm = new \ReflectionMethod($_class, $_method);
+        }
+        catch ( \ReflectionException $e ) {
+            return null;
+        }
+
+    } else {
+        if ($_class && ! class_exists($_class)) {
+            return null;
+        }
+
+        $_objectOrClass = $_object ?? $_class;
+
+        if (! $_objectOrClass) {
+            return null;
+        }
+
+        if (! $_method || ! method_exists($_class, $_method)) {
+            return null;
+        }
+    }
+
+    return $_methodArray;
 }
 
-function _assert_method($value) : ?array
+function _assert_method($value, \ReflectionMethod &$rm = null) : ?array
 {
     if (null === $value) return null;
 
-    if (null === ($_value = _filter_method($value))) {
+    $useReflection = func_num_args() === 2;
+
+    $_value = $useReflection
+        ? _filter_method($value, $rm)
+        : _filter_method($value);
+
+    if (null === $_value) {
         throw _assert_throw(
             [ 'The `value` should be method', $value ]
         );

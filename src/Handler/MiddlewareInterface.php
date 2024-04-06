@@ -2,18 +2,20 @@
 
 namespace Gzhegow\Eventman\Handler;
 
+use Gzhegow\Eventman\Pipeline\Pipeline;
 use Gzhegow\Eventman\Struct\GenericEvent;
 use Gzhegow\Eventman\Event\EventInterface;
 
 
-interface FilterHandlerInterface
+interface MiddlewareInterface
 {
     /**
      * @param string|EventInterface|GenericEvent $event
-     * @param mixed                              $input
+     * @param Pipeline                           $pipeline
+     * @param mixed|null                         $input
      * @param mixed|null                         $context
      *
      * @return mixed
      */
-    public function handle($event, $input, $context = null); // : mixed
+    public function handle($event, Pipeline $pipeline, $input = null, $context = null); // : mixed
 }
