@@ -3,57 +3,40 @@
 namespace Gzhegow\Eventman;
 
 
-function _assert_dump($value) : string
-{
-    if (! is_iterable($value)) {
-        $_value = null
-            ?? (($value === null) ? '{ NULL }' : null)
-            ?? (($value === false) ? '{ FALSE }' : null)
-            ?? (($value === true) ? '{ TRUE }' : null)
-            ?? (is_object($value) ? ('{ object(' . get_class($value) . ' # ' . spl_object_id($value) . ') }') : null)
-            ?? (is_resource($value) ? ('{ resource(' . gettype($value) . ' # ' . ((int) $value) . ') }') : null)
-            //
-            ?? (is_int($value) ? (var_export($value, 1)) : null) // INF
-            ?? (is_float($value) ? (var_export($value, 1)) : null) // NAN
-            ?? (is_string($value) ? ('"' . $value . '"') : null)
-            //
-            ?? null;
-
-    } else {
-        foreach ( $value as $k => $v ) {
-            $value[ $k ] = null
-                ?? (is_array($v) ? '{ array(' . count($v) . ') }' : null)
-                ?? (is_iterable($v) ? '{ iterable(' . get_class($value) . ' # ' . spl_object_id($value) . ') }' : null)
-                ?? _assert_dump($v);
-        }
-
-        $_value = var_export($value, true);
-
-        $_value = str_replace("\n", ' ', $_value);
-        $_value = preg_replace('/\s+/', ' ', $_value);
-    }
-
-    if (null === $_value) {
-        throw _assert_throw(
-            [ 'Unable to dump variable', $value ]
-        );
-    }
-
-    return $_value;
-}
-
 /**
- * @param string|array|\LogicException $error
+ * > gzhegow, вызывает произвольный колбэк с аргументами, не пропускает null
+ * > бросает исключение, позволяет указать ошибку для исключения
+ * > _assert_get('_filter_int', [ $input ], 'Переменная `input` должна быть числом') ?? 1;
  *
- * @return \LogicException|null
+ * @param callable   $fn
+ * @param mixed      $value
+ * @param mixed|null $error
+ * @param array|null $fnArgs
+ *
+ * @return mixed|null
  */
-function _assert_throw($error, $code = null, $previous = null) : ?object
+function _assert_get($fn, $value, $error = '', array $fnArgs = null) // : mixed
 {
-    if (is_a($error, \LogicException::class)) {
-        return $error;
+    $_error = null
+        ?? ($error ?: null)
+        ?? (('0' === $error) ? $error : null)
+        ?? (is_string($fn) ? "[ ASSERT ] {$fn}" : null);
+
+    if (null === $value) {
+        throw _php_throw($_error);
     }
 
-    return new \LogicException($error, $code, $previous);
+    $_args = $fnArgs ?? [];
+
+    array_unshift($_args, $value);
+
+    $result = call_user_func_array($fn, $_args);
+
+    if (null === $result) {
+        throw _php_throw($_error);
+    }
+
+    return $result;
 }
 
 
@@ -97,14 +80,14 @@ function _filter_int($value) : ?int
     return null;
 }
 
-function _assert_int($value) : ?int
+function _filter_positive_int($value) : ?int
 {
-    if (null === $value) return null;
-
     if (null === ($_value = _filter_int($value))) {
-        throw _assert_throw(
-            [ 'The `value` should be integer', $value ]
-        );
+        return null;
+    }
+
+    if ($_value <= 0) {
+        return null;
     }
 
     return $_value;
@@ -138,29 +121,13 @@ function _filter_string($value) : ?string
     return null;
 }
 
-function _assert_string($value) : ?string
+function _filter_strlen($value, array $optional = [], array &$maxmin = null) : ?string
 {
-    if (null === $value) return null;
+    $optional[ 0 ] = $optional[ 0 ] ?? null;
+    $optional[ 1 ] = $optional[ 1 ] ?? 1;
 
-    if (null === ($_value = _filter_string($value))) {
-        throw _assert_throw(
-            [ 'The `value` should be string', $value ]
-        );
-    }
-
-    return $_value;
-}
-
-
-function _filter_strlen($value,
-    int $max = null, int $min = null,
-    int &$_max = null, int &$_min = null
-) : ?string
-{
-    $min = $min ?? 1;
-
-    $_max = null;
-    $_min = null;
+    $maxmin[ 0 ] = null; // &$max
+    $maxmin[ 1 ] = null; // &$min
 
     if (null === ($_value = _filter_string($value))) {
         return null;
@@ -168,41 +135,28 @@ function _filter_strlen($value,
 
     $_value = trim($_value);
 
-    [ $_max, $_min ] = (static function () use ($max, $min) {
-        $max = _assert_int($max);
-        $min = _assert_int($min);
+    $maxmin[ 0 ] = _filter_positive_int($optional[ 0 ]);
+    $maxmin[ 1 ] = _filter_positive_int($optional[ 1 ]);
 
-        $isMax = ! is_null($max);
-        $isMin = ! is_null($min);
+    $isMax = isset($maxmin[ 0 ]);
+    $isMin = isset($maxmin[ 1 ]);
 
-        if ($isMax && ($max <= 0)) {
-            $isMax = false;
-            $max = null;
-        }
-
-        if ($isMin && ($min <= 0)) {
-            $isMin = false;
-            $min = null;
-        }
-
-        if (($isMax && $isMin) && ($max < $min)) {
-            throw _assert_throw([
-                'The `max` should be greater than or equal to `min`',
-                "{$min} > {$max}",
-            ]);
-        }
-
-        return [ $max, $min ];
-    })();
-
-    if (isset($_max) || isset($_min)) {
+    if ($isMax || $isMin) {
         $len = strlen($_value);
 
-        if ($_max && ($len > $_max)) {
+        if ($isMax && $isMin) {
+            if ($maxmin[ 0 ] < $maxmin[ 1 ]) {
+                throw _php_throw(
+                    'The `max` should be >= `min`'
+                );
+            }
+        }
+
+        if (isset($maxmin[ 0 ]) && ($len > $maxmin[ 0 ])) {
             return null;
         }
 
-        if ($_min && ($len < $_min)) {
+        if (isset($maxmin[ 1 ]) && ($len < $maxmin[ 1 ])) {
             return null;
         }
 
@@ -215,83 +169,14 @@ function _filter_strlen($value,
     return $_value;
 }
 
-function _assert_strlen($value,
-    int $max = null, int $min = null,
-    int &$_max = null, int &$_min = null
-) : ?string
+
+function _filter_method($method, array $optional = [], \ReflectionMethod &$rm = null) : ?array
 {
-    if (null === $value) return null;
+    $optional[ 0 ] = $optional[ 0 ] ?? false;
 
-    if (null === ($_value = _filter_strlen($value,
-            $max, $min,
-            $_max, $_min))
-    ) {
-        throw _assert_throw(
-            [ 'The `value` should be string of given length', $_min, $_max, $value ]
-        );
-    }
+    $useReflection = (bool) $optional[ 0 ];
 
-    return $_value;
-}
-
-
-function _filter_word($value,
-    int $max = null, int $min = null,
-    int &$_max = null, int &$_min = null
-) : ?string
-{
-    $max = $max ?? 1000;
-    $min = $min ?? 1;
-
-    if (null === ($_value = _filter_strlen($value,
-            $max, $min,
-            $_max, $_min
-        ))
-    ) {
-        return null;
-    }
-
-    if (false !== strpos($_value, ' ')) {
-        return null;
-    }
-
-    if (false === preg_match('/\s/', $_value, $m)) {
-        return null;
-    }
-
-    if ($m) {
-        return null;
-    }
-
-    return $_value;
-}
-
-function _assert_word($value,
-    int $max = null, int $min = null,
-    int &$_max = null, int &$_min = null
-) : ?string
-{
-    if (null === $value) return null;
-
-    if (null === ($_value = _filter_word($value,
-            $max, $min,
-            $_max, $_min
-        ))
-    ) {
-        throw _assert_throw(
-            [ 'The `value` should be word of given length', $_min, $_max, $value ]
-        );
-    }
-
-    return $_value;
-}
-
-
-function _filter_method($method, \ReflectionMethod &$rm = null) : ?array
-{
     $rm = null;
-
-    $useReflection = func_num_args() === 2;
 
     $_class = null;
     $_object = null;
@@ -348,23 +233,4 @@ function _filter_method($method, \ReflectionMethod &$rm = null) : ?array
     }
 
     return $_methodArray;
-}
-
-function _assert_method($value, \ReflectionMethod &$rm = null) : ?array
-{
-    if (null === $value) return null;
-
-    $useReflection = func_num_args() === 2;
-
-    $_value = $useReflection
-        ? _filter_method($value, $rm)
-        : _filter_method($value);
-
-    if (null === $_value) {
-        throw _assert_throw(
-            [ 'The `value` should be method', $value ]
-        );
-    }
-
-    return $_value;
 }

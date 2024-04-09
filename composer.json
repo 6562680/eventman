@@ -18,7 +18,8 @@
     },
     "files": [
       "helpers/array.php",
-      "helpers/assert.php"
+      "helpers/assert.php",
+      "helpers/php.php"
     ]
   },
   

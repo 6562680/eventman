@@ -212,7 +212,7 @@ class EventmanFactory implements EventmanFactoryInterface
         if ((null === $parsed)) {
             throw new \LogicException(
                 'Unable to ' . __METHOD__ . ': '
-                . _assert_dump($event)
+                . _php_dump($event)
             );
         }
 
@@ -262,7 +262,7 @@ class EventmanFactory implements EventmanFactoryInterface
             if (is_callable($handler)) {
                 $_callable = $handler;
 
-            } elseif (($_handler = _filter_method($handler, $rm)) && $rm->isPublic()) {
+            } elseif (($_handler = _filter_method($handler, [ true ], $rm)) && $rm->isPublic()) {
                 $_publicMethod = $_handler;
             }
 
@@ -297,7 +297,7 @@ class EventmanFactory implements EventmanFactoryInterface
         if ((null === $parsed)) {
             throw new \LogicException(
                 'Unable to ' . __METHOD__ . ': '
-                . _assert_dump($handler)
+                . _php_dump($handler)
             );
         }
 
@@ -342,7 +342,7 @@ class EventmanFactory implements EventmanFactoryInterface
             if (is_callable($middleware)) {
                 $_callable = $middleware;
 
-            } elseif (($_middleware = _filter_method($middleware, $rm)) && $rm->isPublic()) {
+            } elseif (($_middleware = _filter_method($middleware, [ true ], $rm)) && $rm->isPublic()) {
                 $_publicMethod = $_middleware;
             }
 
@@ -372,7 +372,7 @@ class EventmanFactory implements EventmanFactoryInterface
         if ((null === $parsed)) {
             throw new \LogicException(
                 'Unable to ' . __METHOD__ . ': '
-                . _assert_dump($middleware)
+                . _php_dump($middleware)
             );
         }
 
@@ -417,7 +417,7 @@ class EventmanFactory implements EventmanFactoryInterface
         if ((null === $parsed)) {
             throw new \LogicException(
                 'Unable to ' . __METHOD__ . ': '
-                . _assert_dump($subscriber)
+                . _php_dump($subscriber)
             );
         }
 

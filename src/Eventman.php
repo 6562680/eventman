@@ -42,11 +42,6 @@ class Eventman implements EventmanInterface
      */
     protected $subscriberInstances = [];
 
-    /**
-     * @var Pipeline
-     */
-    protected $pipeline;
-
 
     public function __construct(EventmanFactoryInterface $factory)
     {
@@ -162,7 +157,7 @@ class Eventman implements EventmanInterface
                 ? $eventPoint
                 : $i;
 
-            _assert_strlen($_eventPoint);
+            _assert_get('Gzhegow\Eventman\_filter_strlen', $_eventPoint);
 
             $eventPoints[ $_eventPoint ] = true;
         }
@@ -173,7 +168,7 @@ class Eventman implements EventmanInterface
                 ? $filterPoint
                 : $i;
 
-            _assert_strlen($_filterPoint);
+            _assert_get('Gzhegow\Eventman\_filter_strlen', $_filterPoint);
 
             $filterPoints[ $_filterPoint ] = true;
         }
