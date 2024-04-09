@@ -157,7 +157,7 @@ class Eventman implements EventmanInterface
                 ? $eventPoint
                 : $i;
 
-            _assert_get('Gzhegow\Eventman\_filter_strlen', $_eventPoint);
+            _get(_assert_value('Gzhegow\Eventman\_filter_strlen', $_eventPoint));
 
             $eventPoints[ $_eventPoint ] = true;
         }
@@ -168,7 +168,7 @@ class Eventman implements EventmanInterface
                 ? $filterPoint
                 : $i;
 
-            _assert_get('Gzhegow\Eventman\_filter_strlen', $_filterPoint);
+            _get(_assert_value('Gzhegow\Eventman\_filter_strlen', $_filterPoint));
 
             $filterPoints[ $_filterPoint ] = true;
         }

@@ -4,9 +4,28 @@ namespace Gzhegow\Eventman;
 
 
 /**
+ * > gzhegow, конвертирует NULL в исключение
+ * > $value = _get($arr['hello'] ?? null, 'Значение arr[hello] не должно быть null');
+ */
+function _get($value, $error = '') // : mixed
+{
+    if (null === $value) {
+        $_error = null
+            ?? ($error ?: null)
+            ?? (('0' === $error) ? $error : null)
+            ?? 'The `value` should be not null';
+
+        throw _php_throw($_error);
+    }
+
+    return $value;
+}
+
+
+/**
  * > gzhegow, вызывает произвольный колбэк с аргументами, не пропускает null
  * > бросает исключение, позволяет указать ошибку для исключения
- * > _assert_get('_filter_int', [ $input ], 'Переменная `input` должна быть числом') ?? 1;
+ * > _assert_value('_filter_int', $input, 'Переменная `input` должна быть числом') ?? 1;
  *
  * @param callable   $fn
  * @param mixed      $value
@@ -15,8 +34,12 @@ namespace Gzhegow\Eventman;
  *
  * @return mixed|null
  */
-function _assert_get($fn, $value, $error = '', array $fnArgs = null) // : mixed
+function _assert_value($fn, $value, $error = '', array $fnArgs = null) // : mixed
 {
+    if (null === $value) {
+        return null;
+    }
+
     $_error = null
         ?? ($error ?: null)
         ?? (('0' === $error) ? $error : null)
