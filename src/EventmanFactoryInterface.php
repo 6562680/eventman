@@ -13,6 +13,8 @@ interface EventmanFactoryInterface
 {
     public function newParser() : EventmanParserInterface;
 
+    public function newProcessor() : EventmanProcessorInterface;
+
 
     public function newHandlerCallable(GenericHandler $handler); // : callable;
 

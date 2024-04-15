@@ -3,6 +3,7 @@
 namespace Gzhegow\Eventman;
 
 
+use Gzhegow\Eventman\Pipeline\Pipeline;
 use Gzhegow\Eventman\Struct\GenericPoint;
 use Gzhegow\Eventman\Struct\GenericHandler;
 use Gzhegow\Eventman\Struct\GenericMiddleware;
@@ -22,6 +23,29 @@ interface EventmanInterface
         self::TASK_TYPE_EVENT  => true,
         self::TASK_TYPE_FILTER => true,
     ];
+
+
+    /**
+     * @template-covariant T of callable|EventHandlerInterface|GenericHandler
+     * @template-covariant TT of callable|MiddlewareInterface|GenericMiddleware
+     *
+     * @param T|T[]        $handlers
+     * @param TT|TT[]|null $middlewares
+     *
+     * @return Pipeline
+     */
+    public function pipelineEvent($handlers, $middlewares = null) : Pipeline;
+
+    /**
+     * @template-covariant T of callable|EventHandlerInterface|GenericHandler
+     * @template-covariant TT of callable|MiddlewareInterface|GenericMiddleware
+     *
+     * @param T|T[]        $handlers
+     * @param TT|TT[]|null $middlewares
+     *
+     * @return Pipeline
+     */
+    public function pipelineFilter($handlers, $middlewares = null) : Pipeline;
 
 
     /**
