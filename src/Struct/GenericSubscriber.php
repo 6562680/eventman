@@ -3,9 +3,7 @@
 namespace Gzhegow\Eventman\Struct;
 
 use Gzhegow\Eventman\Subscriber\SubscriberInterface;
-use Gzhegow\Eventman\Subscriber\EventSubscriberInterface;
-use Gzhegow\Eventman\Subscriber\FilterSubscriberInterface;
-use Gzhegow\Eventman\Subscriber\MiddlewareSubscriberInterface;
+use function Gzhegow\Eventman\_php_dump;
 
 
 class GenericSubscriber
@@ -25,6 +23,53 @@ class GenericSubscriber
     public $context;
 
 
+    private function __construct()
+    {
+    }
+
+    /**
+     * @return static
+     */
+    public static function from($subscriber, $context = null)
+    {
+        if (is_a($subscriber, GenericSubscriber::class)) {
+            return $subscriber;
+        }
+
+        $_subscriber = null;
+        $_subscriberClass = null;
+        if (is_object($subscriber)) {
+            if ($subscriber instanceof SubscriberInterface) {
+                $_subscriber = $subscriber;
+                $_subscriberClass = get_class($subscriber);
+            }
+
+        } elseif (is_string($subscriber) && ('' !== $subscriber)) {
+            if (is_subclass_of($subscriber, SubscriberInterface::class)) {
+                $_subscriberClass = $subscriber;
+            }
+        }
+
+        $parsed = null
+            ?? $_subscriber
+            ?? $_subscriberClass;
+
+        if ((null === $parsed)) {
+            throw new \LogicException(
+                'Unable to ' . __METHOD__ . ': '
+                . _php_dump($subscriber)
+            );
+        }
+
+        $generic = new GenericSubscriber();
+        $generic->subscriber = $_subscriber;
+        $generic->subscriberClass = $_subscriberClass;
+        $generic->context = $context;
+
+        return $generic;
+    }
+
+
     public function getSubscriber() : SubscriberInterface
     {
         return $this->subscriber;
@@ -39,36 +84,11 @@ class GenericSubscriber
     }
 
 
-    public function getEventList() : array
+    public function getPoints() : array
     {
-        $subscriber = $this->subscriber ?? $this->subscriberClass;
+        $pointList = $this->subscriberClass::points();
 
-        if (! (
-            is_a($subscriber, EventSubscriberInterface::class, true)
-            || is_a($subscriber, MiddlewareSubscriberInterface::class, true)
-        )) {
-            return [];
-        }
-
-        $eventList = $subscriber::eventList();
-
-        return $eventList;
-    }
-
-    public function getFilterList() : array
-    {
-        $subscriber = $this->subscriber ?? $this->subscriberClass;
-
-        if (! (
-            is_a($subscriber, FilterSubscriberInterface::class, true)
-            || is_a($subscriber, MiddlewareSubscriberInterface::class, true)
-        )) {
-            return [];
-        }
-
-        $filterList = $subscriber::filterList();
-
-        return $filterList;
+        return $pointList;
     }
 
 

@@ -3,8 +3,7 @@
 namespace Gzhegow\Eventman;
 
 
-use Gzhegow\Eventman\Struct\GenericEvent;
-use Gzhegow\Eventman\Event\EventInterface;
+use Gzhegow\Eventman\Struct\GenericPoint;
 use Gzhegow\Eventman\Struct\GenericHandler;
 use Gzhegow\Eventman\Struct\GenericMiddleware;
 use Gzhegow\Eventman\Struct\GenericSubscriber;
@@ -16,47 +15,47 @@ use Gzhegow\Eventman\Subscriber\SubscriberInterface;
 
 interface EventmanInterface
 {
-    const EVENT_TYPE_EVENT  = 'event';
-    const EVENT_TYPE_FILTER = 'filter';
+    const TASK_TYPE_EVENT  = 'event';
+    const TASK_TYPE_FILTER = 'filter';
 
-    const LIST_EVENT_TYPE = [
-        self::EVENT_TYPE_EVENT  => true,
-        self::EVENT_TYPE_FILTER => true,
+    const LIST_TASK_TYPE = [
+        self::TASK_TYPE_EVENT  => true,
+        self::TASK_TYPE_FILTER => true,
     ];
 
 
     /**
-     * @param string|EventInterface|GenericEvent            $event
+     * @param string|GenericPoint                           $point
      * @param callable|EventHandlerInterface|GenericHandler $handler
      *
      * @return void
      */
-    public function onEvent($event, $handler) : void;
+    public function onEvent($point, $handler) : void;
 
     /**
-     * @param string|EventInterface|GenericEvent             $event
+     * @param string|GenericPoint                            $point
      * @param callable|FilterHandlerInterface|GenericHandler $handler
      *
      * @return void
      */
-    public function onFilter($event, $handler) : void;
+    public function onFilter($point, $handler) : void;
 
 
     /**
-     * @param string|EventInterface|GenericEvent             $event
+     * @param string|GenericPoint                            $point
      * @param callable|MiddlewareInterface|GenericMiddleware $middleware
      *
      * @return void
      */
-    public function middleEvent($event, $middleware) : void;
+    public function middleEvent($point, $middleware) : void;
 
     /**
-     * @param string|EventInterface|GenericEvent             $event
+     * @param string|GenericPoint                            $point
      * @param callable|MiddlewareInterface|GenericMiddleware $middleware
      *
      * @return void
      */
-    public function middleFilter($event, $middleware) : void;
+    public function middleFilter($point, $middleware) : void;
 
 
     /**
@@ -68,29 +67,29 @@ interface EventmanInterface
 
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed|null                         $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return void
      */
-    public function fireEvent($event, $input = null, $context = null) : void;
+    public function fireEvent($point, $input = null, $context = null) : void;
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed                              $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return mixed
      */
-    public function applyFilter($event, $input, $context = null);
+    public function applyFilter($point, $input = null, $context = null);
 
 
     /**
-     * @param string                             $eventType
-     * @param string|EventInterface|GenericEvent $event
+     * @param string                    $taskType
+     * @param string|GenericPoint|array $points
      *
      * @return array{0: GenericMiddleware[], 1: GenericHandler[]}
      */
-    public function matchEvent(string $eventType, $event) : array;
+    public function task(string $taskType, $points) : array;
 }

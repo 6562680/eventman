@@ -3,8 +3,7 @@
 namespace Gzhegow\Eventman;
 
 use Gzhegow\Eventman\Pipeline\Pipeline;
-use Gzhegow\Eventman\Struct\GenericEvent;
-use Gzhegow\Eventman\Event\EventInterface;
+use Gzhegow\Eventman\Struct\GenericPoint;
 use Gzhegow\Eventman\Struct\GenericHandler;
 use Gzhegow\Eventman\Struct\GenericSubscriber;
 use Gzhegow\Eventman\Struct\GenericMiddleware;
@@ -25,6 +24,15 @@ class Eventman implements EventmanInterface
     protected $factory;
 
     /**
+     * @var EventmanParser
+     */
+    protected $parser;
+    /**
+     * @var EventmanProcessor
+     */
+    protected $processor;
+
+    /**
      * @var array<int, GenericHandler|GenericMiddleware|GenericSubscriber>
      */
     protected $queue = [];
@@ -34,108 +42,195 @@ class Eventman implements EventmanInterface
     protected $taggedQueue = [];
 
     /**
-     * @var array<int, callable>
-     */
-    protected $handlerCallables = [];
-    /**
      * @var array<int, SubscriberInterface>
      */
     protected $subscriberInstances = [];
 
 
-    public function __construct(EventmanFactoryInterface $factory)
+    public function __construct(
+        EventmanFactoryInterface $factory,
+        //
+        EventmanParserInterface $parser = null,
+        EventmanProcessorInterface $processor = null
+    )
     {
         $this->factory = $factory;
+
+        $this->parser = $parser ?? $this->factory->newParser();
+        $this->processor = $processor ?? $this->factory->newProcessor();
     }
 
 
     /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     * @param callable|EventHandlerInterface|GenericHandler      $handler
+     * @template-covariant T of callable|EventHandlerInterface|GenericHandler
+     * @template-covariant TT of callable|MiddlewareInterface|GenericMiddleware
+     *
+     * @param T|T[]        $handlers
+     * @param TT|TT[]|null $middlewares
+     *
+     * @return Pipeline
+     */
+    public function pipelineEvent($handlers, $middlewares = null) : Pipeline
+    {
+        $middlewares = $middlewares ?? [];
+
+        $_handlers = _list($handlers, '\Gzhegow\Eventman\_filter_method');
+        $_middlewares = _list($middlewares, '\Gzhegow\Eventman\_filter_method');
+
+        $_handlers = array_map([ $this->parser, 'assertHandler' ], $_handlers);
+        $_middlewares = array_map([ $this->parser, 'assertMiddleware' ], $_middlewares);
+
+        $pipeline = $this->factory->newPipeline($this->processor);
+
+        foreach ( $_middlewares as $middleware ) {
+            $_middleware = $this->parser->assertMiddleware($middleware);
+
+            $pipeline->addMiddleware($_middleware);
+        }
+
+        $_middleware = $this->parser->assertMiddleware($_handlers
+            ? $this->middlewareEvent($_handlers)
+            : $this->middlewareNullEvent()
+        );
+
+        $pipeline->addMiddleware($_middleware);
+
+        return $pipeline;
+    }
+
+    /**
+     * @template-covariant T of callable|EventHandlerInterface|GenericHandler
+     * @template-covariant TT of callable|MiddlewareInterface|GenericMiddleware
+     *
+     * @param T|T[]        $handlers
+     * @param TT|TT[]|null $middlewares
+     *
+     * @return Pipeline
+     */
+    public function pipelineFilter($handlers, $middlewares = null) : Pipeline
+    {
+        $middlewares = $middlewares ?? [];
+
+        $_handlers = _list($handlers, '\Gzhegow\Eventman\_filter_method');
+        $_middlewares = _list($middlewares, '\Gzhegow\Eventman\_filter_method');
+
+        $_handlers = array_map([ $this->parser, 'assertHandler' ], $_handlers);
+        $_middlewares = array_map([ $this->parser, 'assertMiddleware' ], $_middlewares);
+
+        $pipeline = $this->factory->newPipeline($this->processor);
+
+        foreach ( $_middlewares as $middleware ) {
+            $_middleware = $this->parser->assertMiddleware($middleware);
+
+            $pipeline->addMiddleware($_middleware);
+        }
+
+        $_middleware = $this->parser->assertMiddleware($_handlers
+            ? $this->middlewareFilter($_handlers)
+            : $this->middlewareNullFilter()
+        );
+
+        $pipeline->addMiddleware($_middleware);
+
+        return $pipeline;
+    }
+
+
+    /**
+     * @param string|GenericPoint                           $point
+     * @param callable|EventHandlerInterface|GenericHandler $handler
      *
      * @return void
      */
-    public function onEvent($event, $handler) : void
+    public function onEvent($point, $handler) : void
     {
-        $_event = $this->factory->assertEvent($event);
-        $_handler = $this->factory->assertHandler($handler);
+        $_point = $this->parser->assertPoint($point);
+        $_handler = $this->parser->assertHandler($handler);
+
+        $pointsIndex = $this->parser->parseEventPoints($_point);
 
         $this->queue[] = $_handler;
 
         $idx = _array_key_last($this->queue);
 
-        $this->taggedQueue[ 'event' ][ $idx ] = true;
+        $this->taggedQueue[ static::TASK_TYPE_EVENT ][ $idx ] = true;
 
-        $eventPoint = $this->factory->assertEventPoint($_event);
-
-        $this->taggedQueue[ $eventPoint ][ $idx ] = true;
+        foreach ( $pointsIndex as $p => $bool ) {
+            $this->taggedQueue[ $p ][ $idx ] = true;
+        }
     }
 
     /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     * @param callable|FilterHandlerInterface|GenericHandler     $handler
+     * @param string|GenericPoint                            $point
+     * @param callable|FilterHandlerInterface|GenericHandler $handler
      *
      * @return void
      */
-    public function onFilter($event, $handler) : void
+    public function onFilter($point, $handler) : void
     {
-        $_event = $this->factory->assertEvent($event);
-        $_handler = $this->factory->assertHandler($handler);
+        $_point = $this->parser->assertPoint($point);
+        $_handler = $this->parser->assertHandler($handler);
+
+        $pointsIndex = $this->parser->parseEventPoints($_point);
 
         $this->queue[] = $_handler;
 
         $idx = _array_key_last($this->queue);
 
-        $this->taggedQueue[ 'filter' ][ $idx ] = true;
+        $this->taggedQueue[ static::TASK_TYPE_FILTER ][ $idx ] = true;
 
-        $eventPoint = $this->factory->assertEventPoint($_event);
-
-        $this->taggedQueue[ $eventPoint ][ $idx ] = true;
+        foreach ( $pointsIndex as $p => $bool ) {
+            $this->taggedQueue[ $p ][ $idx ] = true;
+        }
     }
 
 
     /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     * @param callable|MiddlewareInterface|GenericMiddleware     $middleware
+     * @param string|GenericPoint                            $point
+     * @param callable|MiddlewareInterface|GenericMiddleware $middleware
      *
      * @return void
      */
-    public function middleEvent($event, $middleware) : void
+    public function middleEvent($point, $middleware) : void
     {
-        $_event = $this->factory->assertEvent($event);
-        $_middleware = $this->factory->assertMiddleware($middleware);
+        $_point = $this->parser->assertPoint($point);
+        $_middleware = $this->parser->assertMiddleware($middleware);
+
+        $pointsIndex = $this->parser->parseEventPoints($_point);
 
         $this->queue[] = $_middleware;
 
         $idx = _array_key_last($this->queue);
 
-        $this->taggedQueue[ 'event' ][ $idx ] = true;
+        $this->taggedQueue[ static::TASK_TYPE_EVENT ][ $idx ] = true;
 
-        $eventPoint = $this->factory->assertEventPoint($_event);
-
-        $this->taggedQueue[ $eventPoint ][ $idx ] = true;
+        foreach ( $pointsIndex as $p => $bool ) {
+            $this->taggedQueue[ $p ][ $idx ] = true;
+        }
     }
 
     /**
-     * @param string|class-string<EventInterface>|EventInterface $event
-     * @param callable|MiddlewareInterface|GenericMiddleware     $middleware
+     * @param string|GenericPoint                            $point
+     * @param callable|MiddlewareInterface|GenericMiddleware $middleware
      *
      * @return void
      */
-    public function middleFilter($event, $middleware) : void
+    public function middleFilter($point, $middleware) : void
     {
-        $_event = $this->factory->assertEvent($event);
-        $_middleware = $this->factory->assertMiddleware($middleware);
+        $_point = $this->parser->assertPoint($point);
+        $_middleware = $this->parser->assertMiddleware($middleware);
+
+        $pointsIndex = $this->parser->parseEventPoints($_point);
 
         $this->queue[] = $_middleware;
 
         $idx = _array_key_last($this->queue);
 
-        $this->taggedQueue[ 'filter' ][ $idx ] = true;
+        $this->taggedQueue[ static::TASK_TYPE_FILTER ][ $idx ] = true;
 
-        $eventPoint = $this->factory->assertEventPoint($_event);
-
-        $this->taggedQueue[ $eventPoint ][ $idx ] = true;
+        foreach ( $pointsIndex as $p => $bool ) {
+            $this->taggedQueue[ $p ][ $idx ] = true;
+        }
     }
 
 
@@ -146,264 +241,254 @@ class Eventman implements EventmanInterface
      */
     public function subscribe($subscriber) : void
     {
-        $_subscriber = $this->factory->assertSubscriber($subscriber);
+        $_subscriber = $this->parser->assertSubscriber($subscriber);
 
-        $events = $_subscriber->getEventList();
-        $filters = $_subscriber->getFilterList();
+        $points = $_subscriber->getPoints();
 
-        $eventPoints = [];
-        foreach ( $events as $i => $eventPoint ) {
-            $_eventPoint = is_int($i)
-                ? $eventPoint
+        $pointsIndex = [];
+        foreach ( $points as $i => $point ) {
+            $_point = is_int($i)
+                ? $point
                 : $i;
 
-            _get(_assert_value('Gzhegow\Eventman\_filter_strlen', $_eventPoint));
+            $_point = _get(_filter_strlen($_point));
 
-            $eventPoints[ $_eventPoint ] = true;
+            $pointsIndex[ $_point ] = true;
         }
 
-        $filterPoints = [];
-        foreach ( $filters as $i => $filterPoint ) {
-            $_filterPoint = is_int($i)
-                ? $filterPoint
-                : $i;
+        $this->queue[] = $_subscriber;
 
-            _get(_assert_value('Gzhegow\Eventman\_filter_strlen', $_filterPoint));
+        $idx = _array_key_last($this->queue);
 
-            $filterPoints[ $_filterPoint ] = true;
-        }
+        $this->taggedQueue[ static::TASK_TYPE_EVENT ][ $idx ] = true;
+        $this->taggedQueue[ static::TASK_TYPE_FILTER ][ $idx ] = true;
 
-        foreach ( $eventPoints as $eventPoint => $bool ) {
-            $this->queue[] = $_subscriber;
-
-            $idx = _array_key_last($this->queue);
-
-            $this->taggedQueue[ 'event' ][ $idx ] = true;
-            $this->taggedQueue[ $eventPoint ][ $idx ] = true;
-        }
-
-        foreach ( $filterPoints as $filterPoint => $bool ) {
-            $this->queue[] = $_subscriber;
-
-            $idx = _array_key_last($this->queue);
-
-            $this->taggedQueue[ 'filter' ][ $idx ] = true;
-            $this->taggedQueue[ $filterPoint ][ $idx ] = true;
+        foreach ( $pointsIndex as $p => $bool ) {
+            $this->taggedQueue[ $p ][ $idx ] = true;
         }
     }
 
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed|null                         $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return void
      */
-    public function fireEvent($event, $input = null, $context = null) : void
+    public function fireEvent($point, $input = null, $context = null) : void
     {
-        [ $middlewares, $handlers ] = $this->matchEvent('event', $event);
+        [ $middlewares, $handlers ] = $this->task(static::TASK_TYPE_EVENT, $point);
 
-        $callables = [];
-        foreach ( $handlers as $i => $handler ) {
-            if (! isset($this->handlerCallables[ $i ])) {
-                $callable = $this->factory->newHandlerCallable($handler);
+        if ($middlewares) {
+            $pipeline = $this->pipelineEvent($handlers, $middlewares);
 
-                $this->handlerCallables[ $i ] = $callable;
-            }
-
-            $callables[ $i ] = $this->handlerCallables[ $i ];
-        }
-
-        if (! $middlewares) {
-            foreach ( $callables ?? [] as $callable ) {
-                $this->factory->call($callable, [ $event, $input, $context ]);
-            }
+            $pipeline->run($point, $input, $context);
 
             return;
         }
 
-        $pipeline = $this->factory->newPipeline($middlewares);
+        if ($handlers) {
+            $fn = $this->callableEvent($handlers);
 
-        if (! $callables) {
-            $nullMiddleware = static function (
-                $event, Pipeline $pipeline,
-                $input = null
-            ) {
-                return $input;
-            };
-
-            $_middleware = $this->factory->assertMiddleware($nullMiddleware);
-
-        } else {
-            $callablesMiddleware = function (
-                $event, Pipeline $pipeline,
-                $input = null, $context = null
-            ) use ($callables) {
-                foreach ( $callables ?? [] as $callable ) {
-                    $this->factory->call($callable, [ $event, $input, $context ]);
-                }
-            };
-
-            $_middleware = $this->factory->assertMiddleware($callablesMiddleware);
+            $this->processor->callUserFuncArray($fn, [ $point, $input, $context ]);
         }
-
-        $pipeline->addMiddleware($_middleware);
-
-        $pipeline->run($event, $input, $context);
     }
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed                              $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return mixed
      */
-    public function applyFilter($event, $input, $context = null) // : mixed
+    public function applyFilter($point, $input = null, $context = null) // : mixed
     {
-        [ $middlewares, $handlers ] = $this->matchEvent('filter', $event);
-
-        $callables = [];
-        foreach ( $handlers as $i => $handler ) {
-            if (! isset($this->handlerCallables[ $i ])) {
-                $callable = $this->factory->newHandlerCallable($handler);
-
-                $this->handlerCallables[ $i ] = $callable;
-            }
-
-            $callables[ $i ] = $this->handlerCallables[ $i ];
-        }
+        [ $middlewares, $handlers ] = $this->task(static::TASK_TYPE_FILTER, $point);
 
         $current = $input;
 
-        if (! $middlewares) {
-            foreach ( $callables ?? [] as $callable ) {
-                $current = $this->factory->call($callable, [ $event, $current, $context ]);
-            }
+        if ($middlewares) {
+            $pipeline = $this->pipelineFilter($handlers, $middlewares);
+
+            $current = $pipeline->run($point, $current, $context);
 
             return $current;
         }
 
-        $pipeline = $this->factory->newPipeline($middlewares);
+        if ($handlers) {
+            $fn = $this->callableFilter($handlers);
 
-        if (! $callables) {
-            $nullMiddleware = static function (
-                $event, Pipeline $pipeline,
-                $input = null
-            ) {
-                return $input;
-            };
-
-            $_middleware = $this->factory->assertMiddleware($nullMiddleware);
-
-        } else {
-            $callablesMiddleware = function (
-                $event, Pipeline $pipeline,
-                $input = null, $context = null
-            ) use ($callables) {
-                $current = $input;
-
-                foreach ( $callables ?? [] as $callable ) {
-                    $current = $this->factory->call($callable, [ $event, $current, $context ]);
-                }
-
-                return $current;
-            };
-
-            $_middleware = $this->factory->assertMiddleware($callablesMiddleware);
+            $current = $this->processor->callUserFuncArray($fn, [ $point, $current, $context ]);
         }
-
-        $pipeline->addMiddleware($_middleware);
-
-        $current = $pipeline->run($event, $current, $context);
 
         return $current;
     }
 
 
     /**
-     * @param string                             $eventType
-     * @param string|EventInterface|GenericEvent $event
+     * @param string                    $taskType
+     * @param string|GenericPoint|array $points
      *
      * @return array{0: GenericMiddleware[], 1: GenericHandler[]}
      */
-    public function matchEvent(string $eventType, $event) : array
+    public function task(string $taskType, $points) : array
     {
-        if (! isset(static::LIST_EVENT_TYPE[ $eventType ])) {
-            throw new \RuntimeException(
-                'Unknown `eventType`: ' . $eventType
-            );
+        $_points = _list($points);
+
+        $pointsIndex = [];
+        foreach ( $_points as $point ) {
+            $_point = $this->parser->assertPoint($point);
+
+            $pointsIndex += $this->parser->parseEventPoints($_point);
         }
 
-        $_event = $this->factory->assertEvent($event);
+        $intersect = [];
+        foreach ( $pointsIndex as $p => $bool ) {
+            $intersect[] = $this->taggedQueue[ $p ] ?? [];
+        }
+        $intersect[] = $this->taggedQueue[ $taskType ] ?? [];
 
-        $eventPoint = $this->factory->assertEventPoint($_event);
-
-        $index = array_intersect_key(
-            $this->taggedQueue[ $eventPoint ] ?? [],
-            $this->taggedQueue[ $eventType ] ?? []
-        );
+        $index = array_intersect_key(...$intersect);
 
         $middlewares = [];
         $handlers = [];
         foreach ( $index as $i => $bool ) {
-            $handlerGroup = $this->queue[ $i ];
+            $subscription = $this->queue[ $i ];
 
-            if ($handlerGroup instanceof GenericHandler) {
-                $key = $i;
+            if ($subscription instanceof GenericMiddleware) {
+                $middlewares[] = $subscription;
 
-                $handlers[ $key ] = $handlerGroup;
+            } elseif ($subscription instanceof GenericHandler) {
+                $handlers[] = $subscription;
 
-            } elseif ($handlerGroup instanceof GenericMiddleware) {
-                $key = $i;
-
-                $middlewares[ $key ] = $handlerGroup;
-
-            } elseif ($handlerGroup instanceof GenericSubscriber) {
+            } elseif ($subscription instanceof GenericSubscriber) {
                 if (! isset($this->subscriberInstances[ $i ])) {
-                    $this->subscriberInstances[ $i ] = $this->factory->newSubscriber($handlerGroup);
+                    $subscriber = $this->factory->newSubscriber($subscription);
+
+                    $this->subscriberInstances[ $i ] = $subscriber;
                 }
 
-                $subscriberObject = $this->subscriberInstances[ $i ];
+                $subscriberInstance = $this->subscriberInstances[ $i ];
 
-                $mapEventType = [
-                    static::EVENT_TYPE_EVENT  => [ EventSubscriberInterface::class, 'events' ],
-                    static::EVENT_TYPE_FILTER => [ FilterSubscriberInterface::class, 'filters' ],
-                ];
-
-                [ $interface, $objectMethodName ] = $mapEventType[ $eventType ];
-
-                if ($subscriberObject instanceof $interface) {
-                    foreach ( $subscriberObject->{$objectMethodName}() as $ii => [ $sEventPoint, $sHandler ] ) {
-                        if ($sEventPoint !== $eventPoint) {
+                if ($subscriberInstance instanceof MiddlewareSubscriberInterface) {
+                    foreach ( $subscriberInstance->middlewares() as [ $sEventPoint, $sMiddleware ] ) {
+                        if (! isset($pointsIndex[ $sEventPoint ])) {
                             continue;
                         }
 
-                        $key = "{$i}.{$ii}";
+                        $_sMiddleware = $this->parser->assertMiddleware($sMiddleware);
 
-                        $_sHandler = $this->factory->assertHandler($sHandler);
-
-                        $handlers[ $key ] = $_sHandler;
+                        $middlewares[] = $_sMiddleware;
                     }
                 }
 
-                if ($subscriberObject instanceof MiddlewareSubscriberInterface) {
-                    foreach ( $subscriberObject->middlewares() as $ii => [ $sEventPoint, $sMiddleware ] ) {
-                        if ($sEventPoint !== $eventPoint) {
+                $mapEventType = [
+                    static::TASK_TYPE_EVENT  => [ EventSubscriberInterface::class, 'events' ],
+                    static::TASK_TYPE_FILTER => [ FilterSubscriberInterface::class, 'filters' ],
+                ];
+
+                [ $interface, $objectMethodName ] = $mapEventType[ $taskType ];
+
+                if ($subscriberInstance instanceof $interface) {
+                    foreach ( $subscriberInstance->{$objectMethodName}() as [ $sEventPoint, $sHandler ] ) {
+                        if (! isset($pointsIndex[ $sEventPoint ])) {
                             continue;
                         }
 
-                        $key = "{$i}.{$ii}";
+                        $_sHandler = $this->parser->assertHandler($sHandler);
 
-                        $_sMiddleware = $this->factory->assertMiddleware($sMiddleware);
-
-                        $middlewares[ $key ] = $_sMiddleware;
+                        $handlers[] = $_sHandler;
                     }
                 }
             }
         }
 
         return [ $middlewares, $handlers ];
+    }
+
+
+    protected function middlewareNullEvent() : callable
+    {
+        return static function (Pipeline $pipeline, $point, $input = null, $context = null) {
+            return;
+        };
+    }
+
+    protected function middlewareNullFilter() : callable
+    {
+        return static function (Pipeline $pipeline, $point, $input = null, $context = null) {
+            return $input;
+        };
+    }
+
+
+    protected function middlewareEvent(array $handlers) : callable
+    {
+        $processor = $this->processor;
+
+        return static function (
+            Pipeline $pipeline, $point, $input = null, $context = null
+        ) use (
+            $handlers, $processor
+        ) {
+            foreach ( $handlers as $handler ) {
+                $processor->callHandler($handler, [ $point, $input, $context ]);
+            }
+        };
+    }
+
+    protected function callableEvent(array $handlers) : callable
+    {
+        $processor = $this->processor;
+
+        return static function (
+            $point, $input = null, $context = null
+        ) use (
+            $handlers, $processor
+        ) {
+            foreach ( $handlers as $handler ) {
+                $processor->callHandler($handler, [ $point, $input, $context ]);
+            }
+        };
+    }
+
+
+    protected function middlewareFilter(array $handlers) : callable
+    {
+        $processor = $this->processor;
+
+        return static function (
+            Pipeline $pipeline, $point, $input = null, $context = null
+        ) use (
+            $handlers, $processor
+        ) {
+            $current = $input;
+
+            foreach ( $handlers as $handler ) {
+                $current = $processor->callHandler($handler, [ $point, $current, $context ]);
+            }
+
+            return $current;
+        };
+    }
+
+    protected function callableFilter(array $handlers) : callable
+    {
+        $processor = $this->processor;
+
+        return static function (
+            $point, $input = null, $context = null
+        ) use (
+            $handlers, $processor
+        ) {
+            $current = $input;
+
+            foreach ( $handlers as $handler ) {
+                $current = $processor->callHandler($handler, [ $point, $current, $context ]);
+            }
+
+            return $current;
+        };
     }
 }

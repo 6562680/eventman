@@ -2,45 +2,33 @@
 
 namespace Gzhegow\Eventman\Pipeline;
 
-use Gzhegow\Eventman\Struct\GenericEvent;
-use Gzhegow\Eventman\Event\EventInterface;
-use Gzhegow\Eventman\EventmanFactoryInterface;
+use Gzhegow\Eventman\EventmanProcessor;
+use Gzhegow\Eventman\Struct\GenericPoint;
 use Gzhegow\Eventman\Struct\GenericMiddleware;
+use Gzhegow\Eventman\EventmanProcessorInterface;
 
 
 class Pipeline
 {
     /**
-     * @var EventmanFactoryInterface
+     * @var EventmanProcessor
      */
-    protected $factory;
+    protected $processor;
 
     /**
      * @var array<int, GenericMiddleware>
      */
     protected $middlewares = [];
-    /**
-     * @var array<int, callable>
-     */
-    protected $middlewareCallables = [];
 
 
     /**
-     * @param EventmanFactoryInterface $factory
-     * @param GenericMiddleware[]|null $middlewares
+     * @param EventmanProcessorInterface $processor
      */
     public function __construct(
-        EventmanFactoryInterface $factory,
-        array $middlewares = null
+        EventmanProcessorInterface $processor
     )
     {
-        $middlewares = $middlewares ?? [];
-
-        $this->factory = $factory;
-
-        foreach ( $middlewares as $middleware ) {
-            $this->addMiddleware($middleware);
-        }
+        $this->processor = $processor;
     }
 
 
@@ -51,59 +39,39 @@ class Pipeline
 
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed|null                         $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return mixed
      */
-    public function run($event, $input = null, $context = null)
+    public function run($point, $input = null, $context = null)
     {
         reset($this->middlewares);
 
-        $key = key($this->middlewares);
-
-        $result = $this->call($key, [ $event, $this, $input, $context ]);
+        $result = $this->processor->callMiddleware(
+            current($this->middlewares),
+            [ $this, $point, $input, $context ]
+        );
 
         return $result;
     }
 
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed|null                         $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return mixed
      */
-    public function next($event, $input = null, $context = null)
+    public function next($point, $input = null, $context = null)
     {
         next($this->middlewares);
 
-        $key = key($this->middlewares);
-
-        $result = $this->call($key, [ $event, $this, $input, $context ]);
-
-        return $result;
-    }
-
-
-    /**
-     * @param int   $middlewaresKey
-     * @param array $arguments
-     *
-     * @return mixed
-     */
-    protected function call(int $middlewaresKey, array $arguments = [])
-    {
-        if (! isset($this->middlewareCallables[ $middlewaresKey ])) {
-            $middlewareCallable = $this->factory->newMiddlewareCallable(
-                $this->middlewares[ $middlewaresKey ]
-            );
-
-            $this->middlewareCallables[ $middlewaresKey ] = $middlewareCallable;
-        }
-
-        $result = call_user_func_array($this->middlewareCallables[ $middlewaresKey ], $arguments);
+        $result = $this->processor->callMiddleware(
+            current($this->middlewares),
+            [ $this, $point, $input, $context ]
+        );
 
         return $result;
     }

@@ -2,7 +2,7 @@
 
 namespace Gzhegow\Eventman\Subscriber;
 
-use Gzhegow\Eventman\Event\DemoEvent;
+use Gzhegow\Eventman\Point\DemoPoint;
 use Gzhegow\Eventman\Pipeline\Pipeline;
 use Gzhegow\Eventman\Handler\DemoMiddleware;
 use Gzhegow\Eventman\Handler\DemoEventHandler;
@@ -10,27 +10,16 @@ use Gzhegow\Eventman\Handler\DemoFilterHandler;
 
 
 class DemoSubscriber implements
+    MiddlewareSubscriberInterface,
+    //
     EventSubscriberInterface,
-    FilterSubscriberInterface,
-    MiddlewareSubscriberInterface
+    FilterSubscriberInterface
 {
-    public function demoEvent($event, $input = null, $context = null) : void
-    {
-        echo __METHOD__ . PHP_EOL;
-    }
-
-    public function demoFilter($event, $input, $context = null)
-    {
-        echo __METHOD__ . PHP_EOL;
-
-        return $input;
-    }
-
-    public function demoMiddleware($event, Pipeline $pipeline, $input = null, $context = null)
+    public function demoMiddleware(Pipeline $pipeline, $point, $input = null, $context = null)
     {
         echo __METHOD__ . '@before' . PHP_EOL;
 
-        $result = $pipeline->next($event, $input, $context);
+        $result = $pipeline->next($point, $input, $context);
 
         echo __METHOD__ . '@after' . PHP_EOL;
 
@@ -38,44 +27,53 @@ class DemoSubscriber implements
     }
 
 
+    public function demoEvent($point, $input = null, $context = null) : void
+    {
+        echo __METHOD__ . PHP_EOL;
+    }
+
+    public function demoFilter($point, $input = null, $context = null)
+    {
+        echo __METHOD__ . PHP_EOL;
+
+        return $input;
+    }
+
+
+    public function middlewares() : array
+    {
+        return [
+            [ DemoPoint::class, [ $this, 'demoMiddleware' ] ],
+            [ DemoPoint::class, DemoMiddleware::class ],
+        ];
+    }
+
+
     public function events() : array
     {
         return [
-            [ DemoEvent::class, [ $this, 'demoEvent' ] ],
-            [ DemoEvent::class, DemoEventHandler::class ],
+            [ DemoPoint::class, [ $this, 'demoEvent' ] ],
+            [ DemoPoint::class, DemoEventHandler::class ],
         ];
     }
 
     public function filters() : array
     {
         return [
-            [ DemoEvent::class, [ $this, 'demoFilter' ] ],
-            [ DemoEvent::class, DemoFilterHandler::class ],
-        ];
-    }
-
-    public function middlewares() : array
-    {
-        return [
-            [ DemoEvent::class, [ $this, 'demoMiddleware' ] ],
-            [ DemoEvent::class, DemoMiddleware::class ],
+            [ DemoPoint::class, [ $this, 'demoFilter' ] ],
+            [ DemoPoint::class, DemoFilterHandler::class ],
         ];
     }
 
 
-    public static function eventList() : array
+    public static function points() : array
     {
         return [
-            DemoEvent::class,
-            DemoEvent::class => true,
-        ];
-    }
+            // > можно задать ключами (чтобы проверить себя на уникальность) или значениями
+            // DemoPoint::class,
+            // DemoPoint::class => true,
 
-    public static function filterList() : array
-    {
-        return [
-            DemoEvent::class,
-            DemoEvent::class => true,
+            DemoPoint::class => true,
         ];
     }
 }

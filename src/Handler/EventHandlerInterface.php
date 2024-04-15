@@ -2,18 +2,17 @@
 
 namespace Gzhegow\Eventman\Handler;
 
-use Gzhegow\Eventman\Struct\GenericEvent;
-use Gzhegow\Eventman\Event\EventInterface;
+use Gzhegow\Eventman\Struct\GenericPoint;
 
 
-interface EventHandlerInterface
+interface EventHandlerInterface extends HandlerInterface
 {
     /**
-     * @param string|EventInterface|GenericEvent $event
-     * @param mixed|null                         $input
-     * @param mixed|null                         $context
+     * @param string|GenericPoint $point
+     * @param mixed|null          $input
+     * @param mixed|null          $context
      *
      * @return void
      */
-    public function handle($event, $input = null, $context = null) : void;
+    public function handle($point, $input = null, $context = null) : void;
 }

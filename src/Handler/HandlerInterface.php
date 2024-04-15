@@ -2,19 +2,17 @@
 
 namespace Gzhegow\Eventman\Handler;
 
-use Gzhegow\Eventman\Pipeline\Pipeline;
 use Gzhegow\Eventman\Struct\GenericPoint;
 
 
-interface MiddlewareInterface
+interface HandlerInterface
 {
     /**
-     * @param Pipeline            $pipeline
      * @param string|GenericPoint $point
      * @param mixed|null          $input
      * @param mixed|null          $context
      *
      * @return mixed
      */
-    public function handle(Pipeline $pipeline, $point, $input = null, $context = null); // : mixed
+    public function handle($point, $input = null, $context = null); // : mixed
 }

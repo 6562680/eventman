@@ -3,12 +3,13 @@
 namespace Gzhegow\Eventman;
 
 
-/**
- * > gzhegow, конвертирует NULL в исключение
- * > $value = _get($arr['hello'] ?? null, 'Значение arr[hello] не должно быть null');
- */
 function _get($value, $error = '') // : mixed
 {
+    /**
+     * > gzhegow, конвертирует NULL в исключение
+     * > $value = _get($arr['hello'] ?? null, 'Значение arr[hello] не должно быть null');
+     */
+
     if (null === $value) {
         $_error = null
             ?? ($error ?: null)
@@ -19,47 +20,6 @@ function _get($value, $error = '') // : mixed
     }
 
     return $value;
-}
-
-
-/**
- * > gzhegow, вызывает произвольный колбэк с аргументами, не пропускает null
- * > бросает исключение, позволяет указать ошибку для исключения
- * > _assert_value('_filter_int', $input, 'Переменная `input` должна быть числом') ?? 1;
- *
- * @param callable   $fn
- * @param mixed      $value
- * @param mixed|null $error
- * @param array|null $fnArgs
- *
- * @return mixed|null
- */
-function _assert_value($fn, $value, $error = '', array $fnArgs = null) // : mixed
-{
-    if (null === $value) {
-        return null;
-    }
-
-    $_error = null
-        ?? ($error ?: null)
-        ?? (('0' === $error) ? $error : null)
-        ?? (is_string($fn) ? "[ ASSERT ] {$fn}" : null);
-
-    if (null === $value) {
-        throw _php_throw($_error);
-    }
-
-    $_args = $fnArgs ?? [];
-
-    array_unshift($_args, $value);
-
-    $result = call_user_func_array($fn, $_args);
-
-    if (null === $result) {
-        throw _php_throw($_error);
-    }
-
-    return $result;
 }
 
 
@@ -206,13 +166,17 @@ function _filter_method($method, array $optional = [], \ReflectionMethod &$rm = 
     $_objectOrClass = null;
     $_method = null;
     if (is_array($method)) {
-        [ $_objectOrClass, $_method ] = $method + [ null, null ];
+        [ $_objectOrClass, $_methodName ] = $method + [ null, null ];
 
         if (is_object($_objectOrClass)) {
             $_object = $_objectOrClass;
 
         } elseif (is_string($_objectOrClass) && ('' !== $_objectOrClass)) {
             $_class = $_objectOrClass;
+        }
+
+        if (is_string($_methodName)) {
+            $_method = $_methodName;
         }
 
     } elseif (is_string($method) && (false !== strpos('::', $method))) {
@@ -222,6 +186,10 @@ function _filter_method($method, array $optional = [], \ReflectionMethod &$rm = 
     }
 
     if (! $_objectOrClass) {
+        return null;
+    }
+
+    if (! $_method) {
         return null;
     }
 

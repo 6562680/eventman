@@ -12,15 +12,4 @@ interface MiddlewareSubscriberInterface extends SubscriberInterface
      * @return array{0: string, 1: callable|MiddlewareInterface|GenericMiddleware}[]
      */
     public function middlewares() : array;
-
-
-    /**
-     * @return array<string, bool>
-     */
-    public static function eventList() : array;
-
-    /**
-     * @return array<string, bool>
-     */
-    public static function filterList() : array;
 }
